@@ -1,4 +1,4 @@
-import nttvis.objects.sim as nvsim
+import objects.sim as nvsim
 
 
 def test_simulation_class() -> None:
