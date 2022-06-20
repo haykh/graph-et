@@ -16,6 +16,7 @@ distributed==2022.6.0
 Flask==2.1.2
 Flask-Compress==1.12
 fsspec==2022.5.0
+h5py==3.7.0
 HeapDict==1.0.1
 importlib-metadata==4.11.4
 iniconfig==1.1.1
@@ -53,6 +54,7 @@ toml==0.10.2
 tomli==2.0.1
 toolz==0.11.2
 tornado==6.1
+typeguard==2.13.3
 typing-extensions==4.2.0
 urllib3==1.26.9
 Werkzeug==2.1.2
