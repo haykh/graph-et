@@ -4,9 +4,10 @@
   --color-emph: #00bcd4;
 }
 
-
 body {
   background-color: var(--color-bg);
+  font-family: 'JetBrains Mono', 'Roboto', monospace;
+  font-size: 85%;
 }
 
 /*
@@ -16,14 +17,26 @@ body {
   width: 150px;
   cursor: pointer;
 }
-#field-dropdown > div > div {
-  cursor: pointer!important;
+
+#field-dropdown>div>div {
+  cursor: pointer !important;
 }
+
 #field-dropdown .VirtualizedSelectFocusedOption {
   color: var(--color-text);
   background-color: var(--color-emph);
 }
+
 #field-dropdown .VirtualizedSelectSelectedOption {
   font-weight: normal;
   text-decoration: underline;
+}
+
+/* 
+ * Configure tab
+ */
+
+.sim-label {
+  font-weight: bold;
+  color: var(--color-text);
 }

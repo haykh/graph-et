@@ -93,8 +93,9 @@ class Snapshot:
 
 @typechecked
 class Simulation:
-    def __init__(self, name: str, fields: List[str], loadFields: LoadField, tsteps: List[int] = [0], params: Dict[str, Any] = {}) -> None:
+    def __init__(self, name: str, path: str, fields: List[str], loadFields: LoadField, tsteps: List[int] = [0], params: Dict[str, Any] = {}) -> None:
         self._name = name
+        self._path = path
         self._params = params
         self._tsteps = tsteps
         self._snapshots = {
@@ -108,6 +109,10 @@ class Simulation:
     @property
     def name(self) -> str:
         return self._name
+    
+    @property
+    def path(self) -> str:
+        return self._path
 
     @property
     def tsteps(self) -> List[int]:
