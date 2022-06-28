@@ -1,6 +1,8 @@
 from typeguard import typechecked
-from typing import List
+from typing import List, Union
 import dash
+
+FnameTemplate = Union[str, None]
 
 from .defs import *
 from .sim import Simulation
@@ -11,9 +13,16 @@ from .sim import Simulation
 #  3. load and aggregate indicators
 #  4. memory tracker for simulation
 
+
 @typechecked
-def simulationItem(name: str, path: str, loadedQ: bool) -> dash.html.P:
-    return dash.html.P(name + " : " + path, className="sim-label")
+def simulationItem(name: str, path: str, loadedQ: bool) -> dash.html.Div:
+    return dash.html.Div(children=[
+        dash.html.P(name + " : " + path, className="sim-label"),
+        dash.html.Span(children="Loaded: " + str(loadedQ),
+                       className="sim-loaded"),
+        dash.html.Button("x", id="sim-remove-" + name)
+    ])
+
 
 @typechecked
 class Plotter:
@@ -32,32 +41,46 @@ class Plotter:
             dash.html.Div(id='tabs-content')
         ])
         self.config_tab = [
-            dash.dcc.Input(
-                id="input_sim_name",
-                type="text",
-                placeholder="Simulation name",
-                debounce=True,
-            ),
-            dash.dcc.Input(
-                id="input_sim_path",
-                type="text",
-                placeholder="Simulation path",
-                debounce=True,
-                required=True,
-            ),
-            dash.html.Button(
-                "Add",
-                id="button_sim_path"
-            ),
+            dash.html.Div(id='add-simulation-form', children=[
+                dash.dcc.Input(
+                    id="input-sim-name",
+                    type="text",
+                    placeholder="Simulation name",
+                    debounce=True,
+                ),
+                dash.dcc.Input(
+                    id="input-sim-path",
+                    type="text",
+                    placeholder="Simulation path",
+                    debounce=True,
+                    required=True,
+                ),
+                dash.html.Button(
+                    "Add",
+                    id="button-sim-path"
+                ),
+                dash.dcc.Checklist(
+                    ["Fields", "Particles"],
+                    ["Fields"],
+                    id="check-load-vals"
+                ),
+                dash.dcc.Input(
+                    id="input-flds-file",
+                    type="text",
+                    placeholder="flds.tot.%05d",
+                    debounce=True,
+                ),
+                dash.dcc.Input(
+                    id="input-prtl-file",
+                    type="text",
+                    placeholder="prtl.tot.%05d",
+                    debounce=True,
+                ),
+            ]),
             dash.html.Div(
                 children=[],
-                id="simulation_list"
+                id="simulation-list"
             ),
-
-            # dash.dcc.Upload(dash.html.Button('Add a simulation'))
-            # path input
-            # name input
-            # step range input
         ]
         self.plot_tab = [
             dash.html.H1("dada")
@@ -76,31 +99,54 @@ class Plotter:
 
         # # - - - add simulation - - - # #
         @self.app.callback(
-            dash.dependencies.Output('simulation_list', 'children'),
+            dash.dependencies.Output('simulation-list', 'children'),
             [
-                dash.dependencies.Input('button_sim_path', 'n_clicks'),
-                dash.dependencies.Input('input_sim_name', 'value'),
-                dash.dependencies.Input('input_sim_path', 'value')
+                dash.dependencies.Input('button-sim-path', 'n_clicks'),
+                dash.dependencies.Input('input-sim-name', 'value'),
+                dash.dependencies.Input('input-sim-path', 'value'),
+                dash.dependencies.Input('check-load-vals', 'value'),
+                dash.dependencies.Input('input-flds-file', 'value'),
+                dash.dependencies.Input('input-prtl-file', 'value'),
             ],
-            dash.dependencies.State('simulation_list', 'children')
+            dash.dependencies.State('simulation-list', 'children')
         )
-        def add_sim(n_clicks: int, name: str, path: str, children) -> str:
-            name = (name if (name is not None and name != "") else f"SIM_{len(self.simulations)}")
-            if (path is not None):
-                self.addSimulation(name, path, [10])
-            children = [simulationItem(name, s.path, False) for name, s in self.simulations.items()]
+        def add_sim(_: int,
+                    name: str,
+                    path: str,
+                    load_vals: List[str],
+                    flds_file: str,
+                    prtl_file: str,
+                    children: List) -> str:
+            name = (name if (name is not None and name != "")
+                    else f"SIM_{len(self.simulations)}")
+            if (dash.ctx.triggered_id == 'button-sim-path'):
+                if 'Fields' not in load_vals:
+                    flds_file = None
+                elif flds_file is None or flds_file == '':
+                    flds_file = 'flds.tot.%05d'
+                if 'Particles' not in load_vals:
+                    prtl_file = None
+                elif prtl_file is None or prtl_file == '':
+                    prtl_file = 'prtl.tot.%05d'
+                if ((path is not None) and (path != "")):
+                    self.addSimulation(name, path, flds_file, prtl_file)
+            children = [simulationItem(name, s.path, False)
+                        for name, s in self.simulations.items()]
             return children
+        
+        @self.app.callback(
+            dash.dependencies.Output('simulation-list', 'children'),
+            dash.dependencies.Input('sim-remove-*', 'children'),
+        )
 
-    def addSimulation(self, name: str, path: str, tsteps: List[int]) -> None:
-        self.simulations[name] = Simulation(
-            name, path, ['ex'], lambda f, x: None, tsteps)
-
-        # def __init__(self, name: str,
-        #              fields: List[str],
-        #              loadFields: LoadField,
-        #              tsteps: List[int] = [0],
-        #              params: Dict[str, Any] = {}) -> None:
-        # self.simulations[name] = Simulation(path, name, tsteps)
+    def addSimulation(self,
+                      name: str,
+                      path: str,
+                      flds_file: FnameTemplate,
+                      prtl_file: FnameTemplate) -> None:
+        # TODO: warn if simulation is already in list
+        # TODO: error handling here (missing files etc)
+        self.simulations[name] = Simulation(name, path, flds_file, prtl_file)
 
     def deploy(self, debug: bool = False, port: int = 8050) -> None:
         self.app.run_server(debug=debug, port=port)

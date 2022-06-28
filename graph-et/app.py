@@ -1,4 +1,3 @@
-from objects.sim import Simulation
 from objects.plotter import Plotter
 
 if __name__ == "__main__":
