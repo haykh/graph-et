@@ -1,17 +1,19 @@
+from .sim import Simulation
+from .defs import *
 from typeguard import typechecked
-from typing import List, Union
+from typing import Any, Dict, List, Union
 import dash
 
 FnameTemplate = Union[str, None]
 
-from .defs import *
-from .sim import Simulation
 
 # !TODO:
 #  1. progress bar
-#  2. remove button for sim
-#  3. load and aggregate indicators
-#  4. memory tracker for simulation
+#  2. load and aggregate indicators
+#  3. memory tracker for simulation
+
+
+# SINGLE OUTPUT NEEDS TO BE IMPLEMENTED WITH MANY INPUTS AND STATUSES
 
 
 @typechecked
@@ -19,8 +21,10 @@ def simulationItem(name: str, path: str, loadedQ: bool) -> dash.html.Div:
     return dash.html.Div(children=[
         dash.html.P(name + " : " + path, className="sim-label"),
         dash.html.Span(children="Loaded: " + str(loadedQ),
-                       className="sim-loaded"),
-        dash.html.Button("x", id="sim-remove-" + name)
+                       className="sim-loaded",
+                       id={"index": name, "type": "sim-loadedQ"}),
+        dash.html.Button("x", className="sim-remove",
+                         id={"index": name, "type": "sim-remove"})
     ])
 
 
@@ -102,24 +106,25 @@ class Plotter:
             dash.dependencies.Output('simulation-list', 'children'),
             [
                 dash.dependencies.Input('button-sim-path', 'n_clicks'),
-                dash.dependencies.Input('input-sim-name', 'value'),
-                dash.dependencies.Input('input-sim-path', 'value'),
-                dash.dependencies.Input('check-load-vals', 'value'),
-                dash.dependencies.Input('input-flds-file', 'value'),
-                dash.dependencies.Input('input-prtl-file', 'value'),
+                dash.dependencies.State('input-sim-name', 'value'),
+                dash.dependencies.State('input-sim-path', 'value'),
+                dash.dependencies.State('check-load-vals', 'value'),
+                dash.dependencies.State('input-flds-file', 'value'),
+                dash.dependencies.State('input-prtl-file', 'value')
             ],
-            dash.dependencies.State('simulation-list', 'children')
+            dash.dependencies.Input(
+                {'type': 'sim-loadedQ', 'index': dash.ALL}, 'children'),
         )
-        def add_sim(_: int,
+        def add_sim(_1: int,
                     name: str,
                     path: str,
                     load_vals: List[str],
                     flds_file: str,
                     prtl_file: str,
-                    children: List) -> str:
-            name = (name if (name is not None and name != "")
-                    else f"SIM_{len(self.simulations)}")
+                    _2: str) -> List:
             if (dash.ctx.triggered_id == 'button-sim-path'):
+                name = (name if (name is not None and name != "")
+                        else f"SIM_{len(self.simulations)}")
                 if 'Fields' not in load_vals:
                     flds_file = None
                 elif flds_file is None or flds_file == '':
@@ -130,14 +135,27 @@ class Plotter:
                     prtl_file = 'prtl.tot.%05d'
                 if ((path is not None) and (path != "")):
                     self.addSimulation(name, path, flds_file, prtl_file)
-            children = [simulationItem(name, s.path, False)
-                        for name, s in self.simulations.items()]
-            return children
-        
+                else:
+                    self.addSimulation(
+                        name, "/Users/hayk/.tmp/graph-et/graph-et/tests/test_data_2", "dummy%02d.hdf5", prtl_file)
+            return [simulationItem(name, s.path, False) for name, s in self.simulations.items()]
+
         @self.app.callback(
-            dash.dependencies.Output('simulation-list', 'children'),
-            dash.dependencies.Input('sim-remove-*', 'children'),
+            dash.dependencies.Output({'type': 'sim-loadedQ', 'index': dash.MATCH}, 'children'),
+            dash.dependencies.Input(
+                {'type': 'sim-remove', 'index': dash.MATCH}, 'n_clicks'),
+            dash.dependencies.State(
+                {'type': 'sim-remove', 'index': dash.MATCH}, 'id'),
+            dash.dependencies.State(
+                {'type': 'sim-loadedQ', 'index': dash.MATCH}, 'children'),
         )
+        def rm_sim(n: int, id: Dict[str, Any], loaded_txt: str) -> None:
+            if n is not None:
+                if id['index'] in self.simulations:
+                    self.simulations.pop(id['index'])
+                return loaded_txt + "-remove"
+            else:
+                return loaded_txt
 
     def addSimulation(self,
                       name: str,

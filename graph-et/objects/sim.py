@@ -4,6 +4,8 @@ from typeguard import typechecked
 
 FnameTemplate = Union[str, None]
 
+
+@typechecked
 def HandleFname(template: str, tstep: int = None) -> str:
     if '%' in template:
         return template % tstep
@@ -11,6 +13,23 @@ def HandleFname(template: str, tstep: int = None) -> str:
         return template
 
 
+@typechecked
+def AutoDetectTSteps(path: str,
+                     fname_template: FnameTemplate) -> List[int]:
+    import os
+    fname = fname_template.split('%')[0]
+    ext = fname_template.split('.')[-1]
+    try:
+        tsteps = [int(f.replace(fname, '').replace('.' + ext, ''))
+                  for f in os.listdir(path) if f.startswith(fname)]
+        tsteps.sort()
+        return tsteps
+    except Exception as e:
+        raise Exception(f"Unable to find tsteps: {e.args[0]}") from e
+    return []
+
+
+@typechecked
 def CreateFieldKeysFromHdf5(path: str,
                             fname_template: FnameTemplate,
                             tstep: int) -> List[str]:
@@ -19,6 +38,7 @@ def CreateFieldKeysFromHdf5(path: str,
         return list(f.keys())
 
 
+@typechecked
 def LoadHdf5Field(fld: str,
                   path: str,
                   fname_template: FnameTemplate,
@@ -41,6 +61,9 @@ class Field:
         self._label = label
         self._data = None
         self._agg = None
+
+    def __del__(self) -> None:
+        self.unload()
 
     @property
     def label(self) -> str:
@@ -85,9 +108,9 @@ class Field:
             self._isLoaded = True
 
     def unload(self) -> None:
-        assert self._isLoaded, "Field is not loaded"
-        del self._data
-        self._isLoaded = False
+        if self._isLoaded:
+            del self._data
+            self._isLoaded = False
 
     def aggregate(self) -> None:
         pass
@@ -114,6 +137,9 @@ class Snapshot:
         ) if flds_fname_template is not None else []
         for f in fields:
             self._fields[f] = Field(f)
+
+    def __del__(self) -> None:
+        self.unload()
 
     @property
     def tstep(self) -> int:
@@ -142,17 +168,32 @@ class Simulation:
                  path: str,
                  flds_fname_template: FnameTemplate = None,
                  prtls_fname_template: FnameTemplate = None,
-                 tsteps: List[int] = [0],
+                 tsteps: List[int] = [],
                  params: Dict[str, Any] = {}) -> None:
+        if len(tsteps) == 0:
+            self._tsteps = []
+            if flds_fname_template is not None:
+                self._tsteps = AutoDetectTSteps(path, flds_fname_template)
+            elif prtls_fname_template is not None:
+                self._tsteps = AutoDetectTSteps(path, prtls_fname_template)
+            else:
+                raise Exception("No tsteps detected")
+        else:
+            self._tsteps = tsteps
+        print(self._tsteps)
         self._name = name
         self._path = path
         self._params = params
-        self._tsteps = tsteps
         self._flds_fname_template = flds_fname_template
         self._prtls_fname_template = prtls_fname_template
         self._snapshots = {
             tstep: Snapshot(path, flds_fname_template, prtls_fname_template, tstep) for tstep in self._tsteps
         }
+
+    def __del__(self) -> None:
+        if self._tsteps is not None and len(self._tsteps) > 0:
+            for t in self._tsteps:
+                self.unload(t)
 
     @property
     def params(self) -> Dict[str, Any]:
