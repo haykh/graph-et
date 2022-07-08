@@ -25,7 +25,8 @@ def AutoDetectTSteps(path: str,
         tsteps.sort()
         return tsteps
     except Exception as e:
-        raise Exception(f"Unable to find tsteps: {e.args[0]}") from e
+        raise Exception(
+            f"Unable to find tsteps, {path}, {fname}, {ext}: {e.args}") from e
     return []
 
 
@@ -180,7 +181,6 @@ class Simulation:
                 raise Exception("No tsteps detected")
         else:
             self._tsteps = tsteps
-        print(self._tsteps)
         self._name = name
         self._path = path
         self._params = params
@@ -189,11 +189,38 @@ class Simulation:
         self._snapshots = {
             tstep: Snapshot(path, flds_fname_template, prtls_fname_template, tstep) for tstep in self._tsteps
         }
+        print(self)
 
     def __del__(self) -> None:
         if self._tsteps is not None and len(self._tsteps) > 0:
             for t in self._tsteps:
                 self.unload(t)
+
+    def __str__(self) -> str:
+        if self._snapshots[0]._fields != {}:
+            fields = self._snapshots[0]._fields.keys()
+        else:
+            fields = ["None"]
+        if self._snapshots[0]._particles != {}:
+            particles = self._snapshots[0]._particles.keys()
+        else:
+            particles = ["None"]
+        snapshots = self._snapshots
+        return \
+            "-"*30 + "\n" + \
+            f'Simulation:\t {self.name}' +\
+            f'\nPath:\t\t {self.path}' +\
+            f'\nFilenames:\t {self._flds_fname_template if self._flds_fname_template is not None else "None"} (fields)' + ", " +\
+            f"{self._prtls_fname_template if self._prtls_fname_template is not None else 'None'} (particles)" +\
+            f'\nTimesteps:\t {self.tsteps}' +\
+            f'\nFields:\t\t ' + ', '.join(fields) +\
+            ((f'\nLoaded?\n' + "".join(
+                [f'\t{f}:\t {"".join(["*" if s._fields[f].isLoaded else "_" for _, s in snapshots.items()])}\n' for f in fields]
+            )) if (fields != ["None"]) else "") +\
+            ((f'Aggregated?\n' + "".join(
+                [f'\t{f}:\t {"".join(["*" if s._fields[f].isAggregated else "_" for _, s in snapshots.items()])}\n' for f in fields]
+            )) if (fields != ["None"]) else "") +\
+            f'Particles:\t ' + ', '.join(particles)
 
     @property
     def params(self) -> Dict[str, Any]:
