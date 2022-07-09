@@ -12,7 +12,7 @@ def AutoDetectTSteps(path: str,
     try:
         tsteps = np.sort([int(f.replace(fname, '').replace('.' + ext, '')) for f in os.listdir(path) if f.startswith(fname)])
     except Exception as e:
-        raise Exception(f"Unable to find tsteps: {e.args[0]}") from e
+        raise Exception(f"Unable to find tsteps: {e.args}") from e
     return tsteps
     
 print (AutoDetectTSteps("/Users/hayk/.tmp/graph-et/graph-et/tests/test_data_2", "dummy%02d.hdf5"))

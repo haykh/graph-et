@@ -1,3 +1,7 @@
+from typing import Union
+
+FnameTemplate = Union[str, None]
+
 external_stylesheets = [
     {
         'href': 'https://fonts.googleapis.com',

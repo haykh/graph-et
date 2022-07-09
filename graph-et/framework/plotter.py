@@ -15,16 +15,21 @@ FnameTemplate = Union[str, None]
 
 # SINGLE OUTPUT NEEDS TO BE IMPLEMENTED WITH MANY INPUTS AND STATUSES
 
-
 @typechecked
-def simulationItem(name: str, path: str, loadedQ: bool) -> dash.html.Div:
+def simulationItem(sim: Simulation) -> dash.html.Div:
     return dash.html.Div(children=[
-        dash.html.P(name + " : " + path, className="sim-label"),
-        dash.html.Span(children="Loaded: " + str(loadedQ),
-                       className="sim-loaded",
-                       id={"index": name, "type": "sim-loadedQ"}),
+        dash.html.P(sim.name + " : " + sim.path, className="sim-label"),
+        dash.html.Div(children=[
+            dash.html.Button(str(t), disabled=(not s.isLoaded), className="sim-load-btn",
+                             id={"index": sim.name + "_" + str(t),
+                                 "type": "sim-load-btn"}
+                             ) for t, s in zip(sim.tsteps, sim.snapshots.values())
+        ],
+            className="sim-timesteps",
+            id={"index": sim.name, "type": "sim-timesteps"}
+        ),
         dash.html.Button("x", className="sim-remove",
-                         id={"index": name, "type": "sim-remove"})
+                         id={"index": sim.name, "type": "sim-remove"})
     ])
 
 
@@ -136,12 +141,14 @@ class Plotter:
                 if ((path is not None) and (path != "")):
                     self.addSimulation(name, path, flds_file, prtl_file)
                 else:
+                    # !DEBUG
                     self.addSimulation(
-                        name, "/Users/hayk/.tmp/graph-et/graph-et/tests/test_data_2", "dummy%02d.hdf5", prtl_file)
-            return [simulationItem(name, s.path, False) for name, s in self.simulations.items()]
+                        name, "graph-et/tests/test_data_2", "dummy%02d.hdf5", prtl_file)
+            return [simulationItem(s) for _, s in self.simulations.items()]
 
         @self.app.callback(
-            dash.dependencies.Output({'type': 'sim-loadedQ', 'index': dash.MATCH}, 'children'),
+            dash.dependencies.Output(
+                {'type': 'sim-loadedQ', 'index': dash.MATCH}, 'children'),
             dash.dependencies.Input(
                 {'type': 'sim-remove', 'index': dash.MATCH}, 'n_clicks'),
             dash.dependencies.State(

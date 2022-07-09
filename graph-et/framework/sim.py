@@ -1,56 +1,8 @@
-from typing import Dict, Any, List, Union
+from .defs import FnameTemplate
+from .utils import *
+from typing import Dict, Any, List
 from numpy.typing import NDArray
 from typeguard import typechecked
-
-FnameTemplate = Union[str, None]
-
-
-@typechecked
-def HandleFname(template: str, tstep: int = None) -> str:
-    if '%' in template:
-        return template % tstep
-    else:
-        return template
-
-
-@typechecked
-def AutoDetectTSteps(path: str,
-                     fname_template: FnameTemplate) -> List[int]:
-    import os
-    fname = fname_template.split('%')[0]
-    ext = fname_template.split('.')[-1]
-    try:
-        tsteps = [int(f.replace(fname, '').replace('.' + ext, ''))
-                  for f in os.listdir(path) if f.startswith(fname)]
-        tsteps.sort()
-        return tsteps
-    except Exception as e:
-        raise Exception(
-            f"Unable to find tsteps, {path}, {fname}, {ext}: {e.args}") from e
-    return []
-
-
-@typechecked
-def CreateFieldKeysFromHdf5(path: str,
-                            fname_template: FnameTemplate,
-                            tstep: int) -> List[str]:
-    import h5py
-    with h5py.File(f'{path}/{HandleFname(fname_template, tstep)}', 'r') as f:
-        return list(f.keys())
-
-
-@typechecked
-def LoadHdf5Field(fld: str,
-                  path: str,
-                  fname_template: FnameTemplate,
-                  tstep: int) -> NDArray:
-    import h5py
-    import numpy as np
-    with h5py.File(f'{path}/{HandleFname(fname_template, tstep)}', 'r') as f:
-        if (fld not in f.keys()):
-            raise KeyError
-        data = np.squeeze(f[fld][:])
-    return data
 
 
 @typechecked
@@ -133,6 +85,7 @@ class Snapshot:
         self._fields = {}
         self._spectra = {}
         self._particles = {}
+        self._isLoaded = False
         fields = CreateFieldKeysFromHdf5(
             path, flds_fname_template, tstep
         ) if flds_fname_template is not None else []
@@ -154,12 +107,18 @@ class Snapshot:
             fld.load(path, flds_fname_template, self._tstep)
 
     def unload(self) -> None:
+        self._isLoaded = False
         for _, fld in self._fields.items():
             fld.unload()
 
     def getRawField(self,
                     f: str) -> NDArray:
+        self._isLoaded = True
         return self._fields[f].data
+    
+    @property
+    def isLoaded(self) -> bool:
+        return self._isLoaded
 
 
 @typechecked
@@ -215,12 +174,13 @@ class Simulation:
             f'\nTimesteps:\t {self.tsteps}' +\
             f'\nFields:\t\t ' + ', '.join(fields) +\
             ((f'\nLoaded?\n' + "".join(
-                [f'\t{f}:\t {"".join(["*" if s._fields[f].isLoaded else "_" for _, s in snapshots.items()])}\n' for f in fields]
+                [f'\t{f}:\t {"".join(["*" if s.isLoaded else "_" for _, s in snapshots.items()])}\n' for f in fields]
             )) if (fields != ["None"]) else "") +\
             ((f'Aggregated?\n' + "".join(
                 [f'\t{f}:\t {"".join(["*" if s._fields[f].isAggregated else "_" for _, s in snapshots.items()])}\n' for f in fields]
             )) if (fields != ["None"]) else "") +\
-            f'Particles:\t ' + ', '.join(particles)
+            f'Particles:\t ' + ', '.join(particles) +\
+            f"\n\nOverall size:\t {SizeofFmt(GetSimulationSize(self))}"
 
     @property
     def params(self) -> Dict[str, Any]:
@@ -237,6 +197,10 @@ class Simulation:
     @property
     def tsteps(self) -> List[int]:
         return self._tsteps
+    
+    @property
+    def snapshots(self) -> Dict[int, Snapshot]:
+        return self._snapshots
 
     def load(self,
              tstep: int) -> None:

@@ -1,4 +1,4 @@
-from objects.plotter import Plotter
+from framework.plotter import Plotter
 
 if __name__ == "__main__":
     plotter = Plotter()
