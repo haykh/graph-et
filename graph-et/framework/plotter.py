@@ -4,6 +4,9 @@ from typeguard import typechecked
 from typing import Any, Dict, List, Union
 import dash
 
+from .components.conf_simItem import simulationItem
+from .components.conf_addSimForm import addSimForm
+
 FnameTemplate = Union[str, None]
 
 
@@ -14,24 +17,6 @@ FnameTemplate = Union[str, None]
 
 
 # SINGLE OUTPUT NEEDS TO BE IMPLEMENTED WITH MANY INPUTS AND STATUSES
-
-@typechecked
-def simulationItem(sim: Simulation) -> dash.html.Div:
-    return dash.html.Div(children=[
-        dash.html.P(sim.name + " : " + sim.path, className="sim-label"),
-        dash.html.Div(children=[
-            dash.html.Button(str(t), disabled=(not s.isLoaded), className="sim-load-btn",
-                             id={"index": sim.name + "_" + str(t),
-                                 "type": "sim-load-btn"}
-                             ) for t, s in zip(sim.tsteps, sim.snapshots.values())
-        ],
-            className="sim-timesteps",
-            id={"index": sim.name, "type": "sim-timesteps"}
-        ),
-        dash.html.Button("x", className="sim-remove",
-                         id={"index": sim.name, "type": "sim-remove"})
-    ])
-
 
 @typechecked
 class Plotter:
@@ -50,42 +35,7 @@ class Plotter:
             dash.html.Div(id='tabs-content')
         ])
         self.config_tab = [
-            dash.html.Div(id='add-simulation-form', children=[
-                dash.dcc.Input(
-                    id="input-sim-name",
-                    type="text",
-                    placeholder="Simulation name",
-                    debounce=True,
-                ),
-                dash.dcc.Input(
-                    id="input-sim-path",
-                    type="text",
-                    placeholder="Simulation path",
-                    debounce=True,
-                    required=True,
-                ),
-                dash.html.Button(
-                    "Add",
-                    id="button-sim-path"
-                ),
-                dash.dcc.Checklist(
-                    ["Fields", "Particles"],
-                    ["Fields"],
-                    id="check-load-vals"
-                ),
-                dash.dcc.Input(
-                    id="input-flds-file",
-                    type="text",
-                    placeholder="flds.tot.%05d",
-                    debounce=True,
-                ),
-                dash.dcc.Input(
-                    id="input-prtl-file",
-                    type="text",
-                    placeholder="prtl.tot.%05d",
-                    debounce=True,
-                ),
-            ]),
+            addSimForm(),
             dash.html.Div(
                 children=[],
                 id="simulation-list"

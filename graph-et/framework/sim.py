@@ -156,12 +156,13 @@ class Simulation:
                 self.unload(t)
 
     def __str__(self) -> str:
-        if self._snapshots[0]._fields != {}:
-            fields = self._snapshots[0]._fields.keys()
+        s0 = list(self._snapshots.keys())[0]
+        if self._snapshots[s0]._fields != {}:
+            fields = self._snapshots[s0]._fields.keys()
         else:
             fields = ["None"]
-        if self._snapshots[0]._particles != {}:
-            particles = self._snapshots[0]._particles.keys()
+        if self._snapshots[s0]._particles != {}:
+            particles = self._snapshots[s0]._particles.keys()
         else:
             particles = ["None"]
         snapshots = self._snapshots
@@ -180,7 +181,11 @@ class Simulation:
                 [f'\t{f}:\t {"".join(["*" if s._fields[f].isAggregated else "_" for _, s in snapshots.items()])}\n' for f in fields]
             )) if (fields != ["None"]) else "") +\
             f'Particles:\t ' + ', '.join(particles) +\
-            f"\n\nOverall size:\t {SizeofFmt(GetSimulationSize(self))}"
+            f"\n\nOverall size:\t {self.memoryUsage}"
+
+    @property
+    def memoryUsage(self) -> str:
+        return SizeofFmt(GetSimulationSize(self))
 
     @property
     def params(self) -> Dict[str, Any]:
