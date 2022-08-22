@@ -46,6 +46,8 @@ class Field:
              path: str,
              fname_template: str,
              tstep: int) -> None:
+        if self._isLoaded:
+            return
         try:
             self._data = LoadHdf5Field(
                 self._label, path, fname_template, tstep)
@@ -115,7 +117,7 @@ class Snapshot:
                     f: str) -> NDArray:
         self._isLoaded = True
         return self._fields[f].data
-    
+
     @property
     def isLoaded(self) -> bool:
         return self._isLoaded
@@ -202,10 +204,18 @@ class Simulation:
     @property
     def tsteps(self) -> List[int]:
         return self._tsteps
-    
+
     @property
     def snapshots(self) -> Dict[int, Snapshot]:
         return self._snapshots
+
+    @property
+    def flds_fname(self) -> FnameTemplate:
+        return self._flds_fname_template
+
+    @property
+    def prtls_fname(self) -> FnameTemplate:
+        return self._prtls_fname_template
 
     def load(self,
              tstep: int) -> None:
@@ -213,9 +223,17 @@ class Simulation:
                                     self._flds_fname_template,
                                     self._prtls_fname_template)
 
+    def loadAll(self) -> None:
+        for t in self._tsteps:
+            self.load(t)
+
     def unload(self,
                tstep: int) -> None:
         self._snapshots[tstep].unload()
+
+    def unloadAll(self) -> None:
+        for t in self._tsteps:
+            self.unload(t)
 
     def getRawField(self,
                     tstep: int,

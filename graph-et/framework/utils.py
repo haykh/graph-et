@@ -6,6 +6,7 @@ from typeguard import typechecked
 from typing import Any, List
 from numpy.typing import NDArray
 
+
 @typechecked
 def HandleFname(template: str, tstep: int = None) -> str:
     if '%' in template:
