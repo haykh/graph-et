@@ -1,8 +1,9 @@
-from .defs import FnameTemplate
-from .utils import *
 from typing import Dict, Any, List
 from numpy.typing import NDArray
 from typeguard import typechecked
+
+from ..defs import FnameTemplate
+from ..utils import *
 
 
 @typechecked

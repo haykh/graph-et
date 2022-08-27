@@ -1,8 +1,8 @@
-from framework.plotter import Plotter
+from framework.dashboard import Dashboard
 
 if __name__ == "__main__":
-    plotter = Plotter()
-    plotter.deploy(debug=True)
+    dashboard = Dashboard()
+    dashboard.deploy(debug=True)
 
 # import numpy as np
 # import xarray as xr
