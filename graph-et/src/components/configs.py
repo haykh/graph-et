@@ -15,8 +15,8 @@ def simulationItem(sim: Simulation) -> dash.html.Div:
     sim_flds = dash.html.P(
         f"fields: {(sim.flds_fname if sim.flds_fname else 'N/A')}",
         className="sim-flds-fname")
-    sim_prtls = dash.html.P(
-        f"particles: {(sim.prtls_fname if sim.prtls_fname else 'N/A')}", className="sim-prtls-fname")
+    # sim_prtls = dash.html.P(
+    #     f"particles: {(sim.prtls_fname if sim.prtls_fname else 'N/A')}", className="sim-prtls-fname")
     # sim_timesteps = dash.html.Div(children=[
     #     dash.html.Button(str(t), disabled=(not s.isLoaded), className="sim-load-btn",
     #                      id={"index": sim.name + "_" + str(t),
@@ -37,7 +37,7 @@ def simulationItem(sim: Simulation) -> dash.html.Div:
     return dash.html.Div(children=[
         sim_title,
         sim_memory,
-        dash.html.Div([sim_flds, sim_prtls]),
+        dash.html.Div([sim_flds]),
         sim_load,
         sim_unload,
         sim_remove,
@@ -127,15 +127,13 @@ class Configs:
                     self.addSimulation(simulations,
                                        name,
                                        path,
-                                       flds_file,
-                                       prtl_file)
+                                       flds_file)
                 else:
                     # !DEBUG
                     self.addSimulation(simulations,
                                        name,
-                                       "graph-et/tests/test_data_2",
-                                       "dummy%02d.hdf5",
-                                       prtl_file)
+                                       "graph-et/tests/test_data",
+                                       "dummy%02d.hdf5")
             return [simulationItem(s) for _, s in simulations.items()]
 
         # -------------------------- load/remove simulation -------------------------- #
@@ -183,8 +181,7 @@ class Configs:
                       simulations: Dict[str, Simulation],
                       name: str,
                       path: str,
-                      flds_file: FnameTemplate,
-                      prtl_file: FnameTemplate) -> None:
+                      flds_file: FnameTemplate) -> None:
         # TODO: warn if simulation is already in list
         # TODO: error handling here (missing files etc)
-        simulations[name] = Simulation(name, path, flds_file, prtl_file)
+        simulations[name] = Simulation(name, path, flds_file)

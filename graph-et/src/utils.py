@@ -5,6 +5,7 @@ from gc import get_referents
 from typeguard import typechecked
 from typing import Any, List
 from numpy.typing import NDArray
+import xarray as xr
 
 
 @typechecked
@@ -38,6 +39,42 @@ def CreateFieldKeysFromHdf5(path: str,
     import h5py
     with h5py.File(f'{path}/{HandleFname(fname_template, tstep)}', 'r') as f:
         return list(f.keys())
+
+
+@typechecked
+def Hdf5toXarray_flds(path: str,
+                      fname_template: FnameTemplate,
+                      tstep: int) -> xr.Dataset:
+    import h5py
+    import numpy as np
+    import xarray as xr
+    with h5py.File(f'{path}/{HandleFname(fname_template, tstep)}', 'r') as f:
+        if 'xx' in f.keys():
+            x = f['xx'][:]
+        elif 'x' in f.keys():
+            x = f['x'][:]
+        else:
+            raise Exception(f"No x found in {fname_template}")
+
+        if 'yy' in f.keys():
+            y = f['yy'][:]
+        elif 'y' in f.keys():
+            y = f['y'][:]
+        else:
+            raise Exception(f"No y found in {fname_template}")
+        
+        x, y = np.sort(np.unique(x)), np.sort(np.unique(y))
+        
+        return xr.Dataset(
+            {
+                k: (('y', 'x'), np.squeeze(v[:]))
+                for k, v in f.items() if k not in ['xx', 'yy', 'x', 'y']
+            },
+            coords={
+                'x': x,
+                'y': y,
+            }
+        )
 
 
 @typechecked

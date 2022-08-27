@@ -9,5 +9,7 @@ for t in range(10):
     arr2 = np.sin(t * x) - np.cos((12 - t) * y)
     
     with h5py.File(f'dummy{t:02d}.hdf5', 'w') as f:
+        f.create_dataset('xx', data=x)
+        f.create_dataset('yy', data=y)
         f.create_dataset('arr1', data=arr1)
         f.create_dataset('arr2', data=arr2)
