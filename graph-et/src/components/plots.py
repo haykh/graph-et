@@ -33,7 +33,6 @@ class Plots:
             if (dash.ctx.triggered_id == "plot-add-flds"):
                 newplot = FieldPlot(simulations)
                 self._plots[newplot.id] = newplot
-            print (self._plots, n)
             return [p.view for _, p in self._plots.items()]
 
         # -------------------------------- remove plot ------------------------------- #
@@ -54,9 +53,6 @@ class Plots:
                     self._plots.pop(id["index"])
                     return loaded_txt + "-remove"
             return loaded_txt
-            # if n is not None:
-            #     self._plots.pop()
-            # return [p.view for p in self._plots]
 
     @property
     def view(self) -> List:

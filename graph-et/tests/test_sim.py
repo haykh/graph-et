@@ -1,4 +1,4 @@
-import framework.sim as nvsim
+import src.data.sim as nvsim
 
 def test_simulation_class() -> None:
     import os

@@ -1,4 +1,4 @@
-from framework.dashboard import Dashboard
+from src.dashboard import Dashboard
 
 if __name__ == "__main__":
     dashboard = Dashboard()
