@@ -147,21 +147,39 @@ class Configs:
         # -------------------------- load/remove simulation -------------------------- #
         @app.callback(
             dash.Output(
-                {"index": dash.MATCH, "type": "sim-loadedQ"}, "children"),
-            dash.Input(
-                {"index": dash.MATCH, "type": "sim-remove"}, "n_clicks"),
-            dash.Input(
-                {"index": dash.MATCH, "type": "sim-load"}, "n_clicks"),
-            dash.Input(
-                {"index": dash.MATCH, "type": "sim-unload"}, "n_clicks"),
-            dash.State(
-                {"index": dash.MATCH, "type": "sim-remove"}, "id"),
-            dash.State(
-                {"index": dash.MATCH, "type": "sim-load"}, "id"),
-            dash.State(
-                {"index": dash.MATCH, "type": "sim-unload"}, "id"),
-            dash.State(
-                {"index": dash.MATCH, "type": "sim-loadedQ"}, "children"),
+                {"index": dash.MATCH, "type": "sim-loadedQ"},
+                "children"
+            ), [
+                dash.Input(
+                    {"index": dash.MATCH, "type": "sim-remove"},
+                    "n_clicks"
+                ),
+                dash.Input(
+                    {"index": dash.MATCH, "type": "sim-load"},
+                    "n_clicks"
+                ),
+                dash.Input(
+                    {"index": dash.MATCH, "type": "sim-unload"},
+                    "n_clicks"
+                )
+            ], [
+                dash.State(
+                    {"index": dash.MATCH, "type": "sim-remove"},
+                    "id"
+                ),
+                dash.State(
+                    {"index": dash.MATCH, "type": "sim-load"},
+                    "id"
+                ),
+                dash.State(
+                    {"index": dash.MATCH, "type": "sim-unload"},
+                    "id"
+                ),
+                dash.State(
+                    {"index": dash.MATCH, "type": "sim-loadedQ"},
+                    "children"
+                ),
+            ]
         )
         def ldrm_sim(n_rm, n_ld, n_un: int,
                      id_rm, id_ld, id_un: Dict[str, Any],

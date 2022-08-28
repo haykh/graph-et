@@ -8,14 +8,19 @@ body {
   background-color: var(--color-bg);
   font-family: 'JetBrains Mono', 'Roboto', monospace;
   font-size: 85%;
+  color: var(--color-text);
 }
 
 /*
  * Dropdown
  */
+.dash-dropdown {
+  color: black;
+  cursor: pointer;
+}
+
 #field-dropdown {
   width: 150px;
-  cursor: pointer;
 }
 
 #field-dropdown>div>div {
