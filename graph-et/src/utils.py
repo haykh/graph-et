@@ -33,12 +33,12 @@ def AutoDetectTSteps(path: str,
 
 
 @typechecked
-def CreateFieldKeysFromHdf5(path: str,
-                            fname_template: FnameTemplate,
-                            tstep: int) -> List[str]:
+def Hdf5toKeys_flds(path: str,
+                    fname_template: FnameTemplate,
+                    tstep: int) -> List[str]:
     import h5py
     with h5py.File(f'{path}/{HandleFname(fname_template, tstep)}', 'r') as f:
-        return list(f.keys())
+        return [k for k in f.keys() if k not in ['xx', 'x', 'yy', 'y']]
 
 
 @typechecked
@@ -62,9 +62,9 @@ def Hdf5toXarray_flds(path: str,
             y = f['y'][:]
         else:
             raise Exception(f"No y found in {fname_template}")
-        
+
         x, y = np.sort(np.unique(x)), np.sort(np.unique(y))
-        
+
         return xr.Dataset(
             {
                 k: (('y', 'x'), np.squeeze(v[:]))
@@ -75,20 +75,6 @@ def Hdf5toXarray_flds(path: str,
                 'y': y,
             }
         )
-
-
-@typechecked
-def LoadHdf5Field(fld: str,
-                  path: str,
-                  fname_template: FnameTemplate,
-                  tstep: int) -> NDArray:
-    import h5py
-    import numpy as np
-    with h5py.File(f'{path}/{HandleFname(fname_template, tstep)}', 'r') as f:
-        if (fld not in f.keys()):
-            raise KeyError
-        data = np.squeeze(f[fld][:])
-    return data
 
 
 @typechecked

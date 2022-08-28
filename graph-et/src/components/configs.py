@@ -94,6 +94,8 @@ class Configs:
         # ------------------------------ add simulation ------------------------------ #
         @app.callback(
             dash.Output("simulation-list", "children"),
+            dash.Output(
+                {"index": dash.ALL, "type": "plot-sim-dropdown"}, "options"),
             [
                 dash.Input("button-sim-path", "n_clicks"),
                 dash.State("input-sim-name", "value"),
@@ -104,6 +106,8 @@ class Configs:
             ],
             dash.Input(
                 {"type": "sim-loadedQ", "index": dash.ALL}, "children"),
+            dash.Input(
+                {"index": dash.ALL, "type": "plot-sim-dropdown"}, "value"),
         )
         def add_sim(_1: int,
                     name: str,
@@ -111,7 +115,8 @@ class Configs:
                     load_vals: List[str],
                     flds_file: str,
                     prtl_file: str,
-                    _2: str) -> List:
+                    _2: str,
+                    sim_dropdowns: List[str]):
             if (dash.ctx.triggered_id == "button-sim-path"):
                 name = (name if (name is not None and name != "")
                         else f"SIM_{len(simulations)}")
@@ -134,7 +139,10 @@ class Configs:
                                        name,
                                        "graph-et/tests/test_data",
                                        "dummy%02d.hdf5")
-            return [simulationItem(s) for _, s in simulations.items()]
+            sims = [{'label': i, 'value': i}
+                    for i in list(simulations.keys())] if len(list(simulations.keys())) > 0 else []
+            nplots = len(sim_dropdowns)
+            return [simulationItem(s) for _, s in simulations.items()], [sims] * nplots
 
         # -------------------------- load/remove simulation -------------------------- #
         @app.callback(
@@ -157,21 +165,21 @@ class Configs:
         )
         def ldrm_sim(n_rm, n_ld, n_un: int,
                      id_rm, id_ld, id_un: Dict[str, Any],
-                     loaded_txt) -> None:
+                     loaded_txt) -> str:
+            txt = loaded_txt
             if n_rm is not None:
                 if id_rm["index"] in simulations:
                     simulations.pop(id_rm["index"])
-                return loaded_txt + "-remove"
+                txt += "-remove"
             elif n_ld is not None:
                 if id_ld["index"] in simulations:
                     simulations[id_ld["index"]].loadAll()
-                return loaded_txt + "-load"
+                txt += "-load"
             elif n_un is not None:
                 if id_un["index"] in simulations:
                     simulations[id_un["index"]].unloadAll()
-                return loaded_txt + "-unload"
-            else:
-                return loaded_txt
+                txt += "-unload"
+            return txt
 
     @property
     def view(self) -> List:

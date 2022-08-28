@@ -76,15 +76,21 @@ class LazyContainer:
 class Snapshot:
     def __init__(self,
                  loadFields: Callable[[int], Callable[[], Any]],
+                 loadKeys: Callable[[int], List[str]],
                  tstep: int = 0) -> None:
         self._tstep = tstep
         self._spectra = {}
         self._particles = {}
+        self._fkeys = loadKeys(tstep)
         self._fields = LazyContainer(loadFields(tstep))
 
     def __del__(self) -> None:
         self.unload()
 
+    @property
+    def fkeys(self) -> List[str]:
+        return self._fkeys
+    
     @property
     def tstep(self) -> int:
         return self._tstep
@@ -144,8 +150,10 @@ class Simulation:
 
         def loadFields(t: int) -> Callable[[], Any]:
             return lambda: Hdf5toXarray_flds(self._path, self._flds_fname, t)
+        def loadKeys(t: int) -> List[str]:
+            return Hdf5toKeys_flds(self._path, self._flds_fname, t)
         self._snapshots = {
-            tstep: Snapshot(loadFields, tstep) for tstep in self._tsteps
+            tstep: Snapshot(loadFields, loadKeys, tstep) for tstep in self._tsteps
         }
         # print(self)
 
