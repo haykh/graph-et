@@ -1,14 +1,12 @@
 from typing import Dict, Any, List
 from collections.abc import Callable
-from numpy.typing import NDArray
 import datashader as ds
-from typeguard import typechecked
+import numpy as np
 
 from ..defs import FnameTemplate
 from ..utils import *
 
 
-@typechecked
 class LazyContainer:
     def __init__(self, loadData: Callable) -> None:
         self._loadData = loadData
@@ -16,6 +14,10 @@ class LazyContainer:
         self._aggdata = None
         self._loaded = False
         self._aggregated = False
+
+    def __del__(self) -> None:
+        self.unload()
+        self.unaggregate()
 
     @property
     def loaded(self) -> bool:
@@ -46,9 +48,12 @@ class LazyContainer:
                 self.load()
             else:
                 raise ValueError("Data not loaded")
+        wmax, hmax = [self._data[k].shape for k in self._data.data_vars][0]
+        w = min(w, wmax)
+        h = min(h, hmax)
         cnv = ds.Canvas(plot_width=w, plot_height=h)
         self._aggdata = {
-            k: cnv.raster(self._data[k], interpolate='nearest')
+            k: cnv.raster(self._data[k], interpolate="nearest")
             for k in self._data.data_vars
         }
         self._aggregated = True
@@ -72,70 +77,14 @@ class LazyContainer:
         return self._aggdata
 
 
-@typechecked
-class Snapshot:
-    def __init__(self,
-                 loadFields: Callable[[int], Callable[[], Any]],
-                 loadKeys: Callable[[int], List[str]],
-                 tstep: int = 0) -> None:
-        self._tstep = tstep
-        self._spectra = {}
-        self._particles = {}
-        self._fkeys = loadKeys(tstep)
-        self._fields = LazyContainer(loadFields(tstep))
-
-    def __del__(self) -> None:
-        self.unload()
-
-    @property
-    def fkeys(self) -> List[str]:
-        return self._fkeys
-    
-    @property
-    def tstep(self) -> int:
-        return self._tstep
-
-    def load(self) -> None:
-        self._fields.load()
-
-    def aggregate(self, w: int, h: int) -> None:
-        self._fields.aggregate(w, h)
-
-    def unload(self) -> None:
-        self._fields.unload()
-
-    def unaggregate(self) -> None:
-        self._fields.unaggregate()
-
-    @property
-    def fields(self) -> Any:
-        return self._fields
-
-    # def getRawField(self,
-    #                 f: str) -> NDArray:
-    #     try:
-    #         return self._fields.data[f].data
-    #     except KeyError as e:
-    #         raise Exception(f"Field {f} not found") from e
-    #     except Exception as e:
-    #         raise Exception(f"Unable to get field {f}: {e.args[0]}") from e
-
-    @property
-    def loaded(self) -> bool:
-        return self._fields.loaded
-
-    @property
-    def aggregated(self) -> bool:
-        return self._fields.aggregated
-
-
-@typechecked
 class Simulation:
-    def __init__(self,
-                 name: str,
-                 path: str,
-                 flds_fname: FnameTemplate = None,
-                 tsteps: List[int] = []) -> None:
+    def __init__(
+        self,
+        name: str,
+        path: str,
+        flds_fname: FnameTemplate = None,
+        tsteps: List[int] = [],
+    ) -> None:
         if len(tsteps) == 0:
             self._tsteps = []
             if flds_fname is not None:
@@ -150,17 +99,81 @@ class Simulation:
 
         def loadFields(t: int) -> Callable[[], Any]:
             return lambda: Hdf5toXarray_flds(self._path, self._flds_fname, t)
+
         def loadKeys(t: int) -> List[str]:
             return Hdf5toKeys_flds(self._path, self._flds_fname, t)
+
         self._snapshots = {
-            tstep: Snapshot(loadFields, loadKeys, tstep) for tstep in self._tsteps
+            tstep: LazyContainer(loadFields(tstep)) for tstep in self._tsteps
         }
-        # print(self)
+        self._field_keys = loadKeys(self._tsteps[0])
 
     def __del__(self) -> None:
         if self._tsteps is not None and len(self._tsteps) > 0:
             for t in self._tsteps:
-                self.unload(t)
+                del self._snapshots[t]
+
+    @property
+    def memoryUsage(self) -> str:
+        return SizeofFmt(GetSimulationSize(self))
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        return self._params
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def tsteps(self) -> List[int]:
+        return self._tsteps
+
+    @property
+    def field_keys(self) -> List[str]:
+        return list(self._field_keys)
+
+    @property
+    def loaded(self) -> bool:
+        return all([self._snapshots[t].loaded for t in self._tsteps])
+
+    @property
+    def snapshots(self) -> Dict[int, "LazyContainer"]:
+        return self._snapshots
+
+    def getAggregatedField(self, tstep: int, key: str) -> Any:
+        assert self._snapshots[tstep].aggregated, "Data not aggregated"
+        return self._snapshots[tstep].aggdata[key]
+
+    def getRawField(self, tstep: int, key: str) -> Any:
+        assert self._snapshots[tstep].loaded, "Data not loaded"
+        return self._snapshots[tstep].data[key]
+
+    def load(self, tstep: int) -> None:
+        self._snapshots[tstep].load()
+
+    def loadAll(self) -> None:
+        for t in self._tsteps:
+            self.load(t)
+
+    def aggregate(self, tstep: int, w: int, h: int) -> None:
+        self._snapshots[tstep].aggregate(w, h)
+
+    def unload(self, tstep: int) -> None:
+        self._snapshots[tstep].unload()
+
+    def unloadAll(self) -> None:
+        for t in self._tsteps:
+            self.unload(t)
+
+    # for internal use only
+    @property
+    def path(self) -> str:
+        return self._path
+
+    @property
+    def flds_fname(self) -> "FnameTemplate":
+        return self._flds_fname
 
     # def __str__(self) -> str:
     #     s0 = list(self._snapshots.keys())[0]
@@ -190,123 +203,3 @@ class Simulation:
     #         f"\n\nOverall size:\t {self.memoryUsage}"
 
     #     # f"{self._prtls_fname_template if self._prtls_fname_template is not None else 'None'} (particles)" +\
-
-    @property
-    def memoryUsage(self) -> str:
-        return SizeofFmt(GetSimulationSize(self))
-
-    @property
-    def params(self) -> Dict[str, Any]:
-        return self._params
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def path(self) -> str:
-        return self._path
-
-    @property
-    def tsteps(self) -> List[int]:
-        return self._tsteps
-
-    @property
-    def snapshots(self) -> Dict[int, Snapshot]:
-        return self._snapshots
-
-    @property
-    def flds_fname(self) -> FnameTemplate:
-        return self._flds_fname
-
-    def load(self,
-             tstep: int) -> None:
-        self._snapshots[tstep].load()
-
-    def loadAll(self) -> None:
-        for t in self._tsteps:
-            self.load(t)
-
-    def unload(self,
-               tstep: int) -> None:
-        self._snapshots[tstep].unload()
-
-    def unloadAll(self) -> None:
-        for t in self._tsteps:
-            self.unload(t)
-
-    # def getRawField(self,
-    #                 tstep: int,
-    #                 f: str) -> NDArray:
-    #     return self._snapshots[tstep].getRawField(f)
-
-
-# @typechecked
-# class Field:
-#     def __init__(self,
-#                  label: str) -> None:
-#         self._isLoaded = False
-#         self._isAggregated = False
-#         self._label = label
-#         self._data = None
-#         self._agg = None
-
-#     def __del__(self) -> None:
-#         self.unload()
-
-#     @property
-#     def label(self) -> str:
-#         return self._label
-
-#     @property
-#     def data(self) -> NDArray:
-#         return self._data
-
-#     @property
-#     def agg(self):
-#         return self._agg
-
-#     @property
-#     def isLoaded(self) -> bool:
-#         return self._isLoaded
-
-#     @property
-#     def isAggregated(self) -> bool:
-#         return self._isAggregated
-
-#     @property
-#     def data(self) -> NDArray:
-#         return self._data
-
-#     def load(self,
-#              path: str,
-#              fname_template: str,
-#              tstep: int) -> None:
-#         if self._isLoaded:
-#             return
-#         try:
-#             self._data = LoadHdf5Field(
-#                 self._label, path, fname_template, tstep)
-#         except MemoryError as e:
-#             raise Exception(f"Cannot fit field into memory") from e
-#         except FileNotFoundError as e:
-#             raise Exception(f"Cannot find field file") from e
-#         except KeyError as e:
-#             raise Exception(f"Cannot find field in file") from e
-#         except Exception as e:
-#             raise Exception(f"Unable to load field: {e.args[0]}") from e
-#         else:
-#             self._isLoaded = True
-
-#     def unload(self) -> None:
-#         if self._isLoaded:
-#             del self._data
-#             self._isLoaded = False
-
-#     def aggregate(self) -> None:
-#         pass
-#         self._isAggregated = True
-
-#     # TODO:
-#     def describe(self) -> None:
-#         pass

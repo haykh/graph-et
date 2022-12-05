@@ -1,20 +1,12 @@
-:root {
-  --color-bg: #2f2f2f;
-  --color-text: white;
-  --color-emph: #00bcd4;
-}
-
 body {
-  background-color: var(--color-bg);
   font-family: 'JetBrains Mono', 'Roboto', monospace;
   font-size: 85%;
-  color: var(--color-text);
 }
 
 /*
  * Dropdown
  */
-.dash-dropdown {
+/* .dash-dropdown {
   color: black;
   cursor: pointer;
 }
@@ -35,13 +27,13 @@ body {
 #field-dropdown .VirtualizedSelectSelectedOption {
   font-weight: normal;
   text-decoration: underline;
-}
+} */
 
 /* 
  * Configure tab
  */
 
-.sim-label {
+/* .sim-label {
   font-weight: bold;
   color: var(--color-text);
-}
+} */
