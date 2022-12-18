@@ -51,8 +51,8 @@ def simulationItem(sim: Simulation) -> dash.html.Div:
                 dbc.CardFooter(
                     dbc.Row(
                         [
-                            dbc.Col(sim_memory, width=4),
-                            dbc.Col(sim_loadunload, width=8),
+                            dbc.Col(sim_memory, width=5),
+                            dbc.Col(sim_loadunload, width=7),
                         ],
                         align="center",
                     ),
@@ -134,6 +134,7 @@ class Configs:
                 ],
                 align="center",
                 justify="center",
+                className="m-0"
             ),
             dbc.Row(children=[], id="simulation-list", className="d-flex flex-row"),
         ]

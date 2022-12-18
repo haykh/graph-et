@@ -43,6 +43,8 @@ class LazyContainer:
                 self._loaded = True
 
     def aggregate(self, w: int, h: int, load: bool = True) -> None:
+        if self._aggregated:
+            return
         if self._data is None:
             if load:
                 self.load()

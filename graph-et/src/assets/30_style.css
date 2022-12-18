@@ -3,6 +3,11 @@ body {
   font-size: 85%;
 }
 
+select option {
+  /* blackbody gradient as background */
+  background: linear-gradient(red, orange);
+}
+
 /*
  * Dropdown
  */
