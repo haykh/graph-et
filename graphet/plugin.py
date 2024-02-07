@@ -7,7 +7,7 @@ class Plugin:
 
     def __init__(
         self,
-        params: bool = True,
+        params: bool = False,
         fields: Union[None, List[str]] = ["ALL"],
         particles: Union[None, List[str]] = ["ALL"],
         spectra: Union[None, List[str]] = ["ALL"],
@@ -36,7 +36,7 @@ class Plugin:
         Parameters
         ----------
         `params` : `bool`, optional
-            whether to read the simulation parameters (default: `True`)
+            whether to read the simulation parameters (default: `False`)
         `fields` : `Union[None, List[str]]`, optional
             list of fields to read (default: `["ALL"]`)
         `particles` : `Union[None, List[str]]`, optional
@@ -150,7 +150,7 @@ class Plugin:
         import dask.array as da
         import numpy as np
         import xarray as xr
-        
+
         def list_to_ragged(arr):
             max_len = np.max([len(a) for a in arr])
             return [da.concatenate([a, da.full(max_len - len(a), np.nan)]) for a in arr]
@@ -163,9 +163,7 @@ class Plugin:
         if (self.coord_transform is not None) and ("t" in self.coord_transform.keys()):
             params = self.readParams()
             times = self.coord_transform["t"](times, params)
-        return xr.DataArray(
-            da.stack(data), dims=["t", "id"], coords={"t": times}
-        )
+        return xr.DataArray(da.stack(data), dims=["t", "id"], coords={"t": times})
 
     def spectrum(self, spec: str, steps: List[int]) -> xr.DataArray:
         """
