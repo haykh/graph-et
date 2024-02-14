@@ -29,10 +29,15 @@ class Data:
 
         if self.plugin.particles is not None:
             self.particles = {}
-            for p in self.plugin.prtlSpecies():
+            all_species = self.plugin.prtlSpecies()
+            all_keys = self.plugin.prtlKeys()
+            for p in all_species:
                 self.particles[p] = xr.Dataset()
-                for k in self.plugin.prtlKeys():
-                    self.particles[p][k] = self.plugin.particleKey(p, k, steps)
+                for k in all_keys:
+                    try:
+                        self.particles[p][k] = self.plugin.particleKey(p, k, steps)
+                    except:
+                        ...
 
         if self.plugin.spectra is not None:
             self.spectra = xr.Dataset()
