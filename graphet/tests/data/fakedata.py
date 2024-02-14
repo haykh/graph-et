@@ -4,6 +4,8 @@ import os
 
 path = "./"
 
+rng = np.random.default_rng(1234)
+
 xs = np.arange(0, 20)
 ys = np.arange(0, 30)
 zs = np.arange(0, 25)
@@ -57,21 +59,21 @@ for time in range(5):
 
 
 for s in range(1, 5):
-    n = int(np.random.randn() * 20 + 100)
-    xs = np.random.random(n) * 20
-    ys = np.random.random(n) * 30
-    zs = np.random.random(n) * 25
-    uxs = np.random.random(n) * 2.0 - 1.0
-    uys = np.random.random(n) * 2.0 - 1.0
-    uzs = np.random.random(n) * 2.0 - 1.0
+    n = int(rng.normal() * 20 + 100)
+    xs = rng.random(n) * 20
+    ys = rng.random(n) * 30
+    zs = rng.random(n) * 25
+    uxs = rng.random(n) * 2.0 - 1.0
+    uys = rng.random(n) * 2.0 - 1.0
+    uzs = rng.random(n) * 2.0 - 1.0
     for time in range(5):
         gammas = np.sqrt(1 + uxs**2 + uys**2 + uzs**2)
         xs += uxs / gammas
         ys += uys / gammas
         zs += uzs / gammas
-        uxs += np.random.random(len(uxs)) * 2.0 - 1.0
-        uys += np.random.random(len(uys)) * 2.0 - 1.0
-        uzs += np.random.random(len(uzs)) * 2.0 - 1.0
+        uxs += rng.random(len(uxs)) * 2.0 - 1.0
+        uys += rng.random(len(uys)) * 2.0 - 1.0
+        uzs += rng.random(len(uzs)) * 2.0 - 1.0
         mask = (xs > 0) & (xs < 20) & (ys > 0) & (ys < 30) & (zs > 0) & (zs < 25)
         xs = xs[mask]
         ys = ys[mask]
@@ -84,9 +86,11 @@ for s in range(1, 5):
         hf.create_dataset(f"x_{s}", data=xs)
         hf.create_dataset(f"y_{s}", data=ys)
         hf.create_dataset(f"z_{s}", data=zs)
-        hf.create_dataset(f"u_{s}", data=uxs)
-        hf.create_dataset(f"v_{s}", data=uys)
-        hf.create_dataset(f"w_{s}", data=uzs)
+        if s % 2 == 0:
+            # only write velocity for even species
+            hf.create_dataset(f"u_{s}", data=uxs)
+            hf.create_dataset(f"v_{s}", data=uys)
+            hf.create_dataset(f"w_{s}", data=uzs)
         hf.close()
 
         fname = f"{path}tristanv2/spec/spec.tot.{time:05d}"
