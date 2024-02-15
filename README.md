@@ -49,6 +49,6 @@ cnt, _ = np.histogram(
 ### Todo
 
 - [ ] Add support for `TristanV1` plugin
-- [ ] Coordinate transformations for particles
-- [ ] Support for coordinate swapping in field names
+- [x] Coordinate transformations for particles
+- [x] Support for coordinate swapping in field names
 - [ ] Support for custom defined fields

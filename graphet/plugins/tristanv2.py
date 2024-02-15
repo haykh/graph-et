@@ -12,6 +12,7 @@ class TristanV2(Plugin):
         cfg_fname: Union[str, None] = None,
         **kwargs,
     ):
+        self.first_step = kwargs.get("first_step", kwargs.get("steps", [0])[0])
         parent_kwargs = [
             "params",
             "fields",
@@ -46,7 +47,7 @@ class TristanV2(Plugin):
                 "z": self.kwargs.get("z"),
             }
         else:
-            s0 = self.kwargs.get("first_step", 0)
+            s0 = self.first_step
             xx, yy, zz = (
                 self.readField("xx", s0),
                 self.readField("yy", s0),
@@ -112,7 +113,7 @@ class TristanV2(Plugin):
         if self.fields is None:
             return []
         else:
-            s0 = self.kwargs.get("first_step", 0)
+            s0 = self.first_step
             self.openFieldFiles([s0])
             return list(self.files["flds"][s0].keys())
 
@@ -130,13 +131,13 @@ class TristanV2(Plugin):
         if self.spectra is None:
             return []
         else:
-            s0 = self.kwargs.get("first_step", 0)
+            s0 = self.first_step
             self.openSpectrumFiles([s0])
             return [x for x in list(self.files["spec"][s0].keys()) if x.startswith("n")]
 
     def specBins(self, spec: str) -> Dict[str, np.ndarray]:
         bins = {}
-        s0 = self.kwargs.get("first_step", 0)
+        s0 = self.first_step
         self.openSpectrumFiles([s0])
         if spec.startswith("nr"):
             bins["re"] = self.files["spec"][s0]["rbins"][:]
@@ -149,16 +150,20 @@ class TristanV2(Plugin):
                         bins[xyz] = arr
         return bins
 
-    def prtlKeys(self) -> List[str]:
+    def prtlKeys(self, sp: int = None) -> List[str]:
         import numpy as np
 
         if self.particles is None:
             return []
         else:
-            s0 = self.kwargs.get("first_step", 0)
+            s0 = self.first_step
             self.openParticleFiles([s0])
             return np.unique(
-                [k.split("_")[0] for k in list(self.files["prtl"][s0].keys())]
+                [
+                    k.split("_")[0]
+                    for k in self.files["prtl"][s0].keys()
+                    if k.endswith(f"_{sp}")
+                ]
             ).tolist()
 
     def prtlSpecies(self) -> List[int]:
@@ -167,7 +172,7 @@ class TristanV2(Plugin):
         if self.particles is None:
             return []
         else:
-            s0 = self.kwargs.get("first_step", 0)
+            s0 = self.first_step
             self.openParticleFiles([s0])
             return np.unique(
                 [int(k.split("_")[1]) for k in list(self.files["prtl"][s0].keys())]

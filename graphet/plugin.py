@@ -1,9 +1,10 @@
-from typing import Any, List, Dict, Union, Callable
+from typing import Any, List, Dict, Union, Callable, Tuple
 
 
 class Plugin:
     import numpy as np
     import xarray as xr
+    import dask.array as da
 
     def __init__(
         self,
@@ -84,123 +85,101 @@ class Plugin:
                     coords[ax_mapping[ax]] = func(coords[ax_mapping[ax]], params)
         return {newax: coords[oldax] for oldax, newax in zip(self.origaxes, self.axes)}
 
-    def field(self, field: str, steps: List[int]) -> xr.DataArray:
+    def field(self, field: str, step: int) -> da.Array:
         """
-        Read a field from the simulation and return it as an xarray DataArray.
+        Read a field from the simulation at a specific step and return it as an dask array.
 
         Parameters
         ----------
         `field` : `str`
             the name of the field to read
-        `steps` : `List[int]`
-            the steps to read
+        `step` : `int`
+            the step to read
         Returns
         -------
-        `xr.DataArray`
-            the field as an xarray DataArray
+        `da.Array`
+            the field as a dask array
         """
-        import dask
         import dask.array as da
-        import numpy as np
-        import xarray as xr
 
-        coord_map = {old: new for old, new in zip(self.origaxes, self.axes)}
-        for xyz in ["x", "y", "z"]:
-            if xyz in field:
-                field = field.replace("x", coord_map["x"])
-                break
-        coords = self.coords()
-        dask_arrays = []
-        with dask.config.set(**{"array.slicing.split_large_chunks": True}):
-            for step in steps:
-                fld = da.from_array(self.readField(field, step), chunks="auto")
-                dask_arrays.append(fld)
-        times = np.array(steps).astype(float)
-        if (self.coord_transform is not None) and ("t" in self.coord_transform.keys()):
-            params = self.readParams()
-            times = self.coord_transform["t"](times, params)
-        return xr.DataArray(
-            da.stack(dask_arrays, axis=0),
-            dims=["t", *list(coords.keys())],
-            name=field,
-            coords={
-                "t": times,
-                **coords,
-            },
-        )
+        oldfield = field + ""
+        ax_mapping = {newax: oldax for oldax, newax in zip(self.origaxes, self.axes)}
+        params = self.readParams()
+        transform = lambda fld, _: fld
+        if any(oldfield.endswith(i) for i in ["x", "y", "z"]):
+            xyz = oldfield[-1]
+            if oldfield[-2] == oldfield[-1]:
+                oldfield = oldfield[:-2] + ax_mapping[oldfield[-1]] * 2
+                if (self.coord_transform is not None) and (
+                    xyz in self.coord_transform.keys()
+                ):
+                    transform = self.coord_transform[xyz]
+            else:
+                oldfield = oldfield[:-1] + ax_mapping[oldfield[-1]]
 
-    def particleKey(self, spec: int, key: str, steps: List[int]) -> xr.DataArray:
+        arr = da.from_array(self.readField(oldfield, step), chunks="auto")
+        if self.swapaxes is not None:
+            for sw in self.swapaxes:
+                arr = da.swapaxes(arr, *sw)
+        return transform(arr, params)
+
+    def particleKey(self, sp: int, key: str, step: int) -> xr.DataArray:
         """
-        Read a particle key from the simulation and return it as an xarray DataArray.
+        Read a particle key from the simulation at a specific step and return it as a dask array.
 
         Parameters
         ----------
-        `spec` : `int`
+        `sp` : `int`
             the particle species
         `key` : `str`
             the name of the particle key to read
-        `steps` : `List[int]`
-            the steps to read
+        `step` : `int`
+            the step to read
 
         Returns
         -------
-        `xr.DataArray`
-            the particle key as an xarray DataArray
+        `da.Array`
+            the particle key as a dask array
         """
         import dask.array as da
-        import numpy as np
-        import xarray as xr
 
-        def list_to_ragged(arr):
-            max_len = np.max([len(a) for a in arr])
-            return [da.concatenate([a, da.full(max_len - len(a), np.nan)]) for a in arr]
+        oldkey = key + ""
+        ax_mapping = {newax: oldax for oldax, newax in zip(self.origaxes, self.axes)}
+        params = self.readParams()
+        transform = lambda k, _: k
+        if oldkey in ["x", "y", "z"]:
+            oldkey = ax_mapping[oldkey]
+            if (self.coord_transform is not None) and (
+                oldkey in self.coord_transform.keys()
+            ):
+                transform = self.coord_transform[key]
 
-        dask_arrays = []
-        for step in steps:
-            dask_arrays.append(self.readParticleKey(spec, key, step))
-        data = list_to_ragged(dask_arrays)
-        times = np.array(steps).astype(float)
-        if (self.coord_transform is not None) and ("t" in self.coord_transform.keys()):
-            params = self.readParams()
-            times = self.coord_transform["t"](times, params)
-        return xr.DataArray(da.stack(data), dims=["t", "id"], coords={"t": times})
+        return transform(
+            da.from_array(self.readParticleKey(sp, oldkey, step), chunks="auto"), params
+        )
 
-    def spectrum(self, spec: str, steps: List[int]) -> xr.DataArray:
+    def spectrum(self, spec: str, step: int) -> da.Array:
         """
-        Read a spectrum from the simulation and return it as an xarray DataArray.
+        Read a spectrum from the simulation at a specific step and return it as a dask array.
 
         Parameters
         ----------
         `spec` : `str`
             the name of the spectrum to read
-        `steps` : `List[int]`
-            the steps to read
+        `step` : `int`
+            the step to read
 
         Returns
         -------
-        `xr.DataArray`
-            the spectrum as an xarray DataArray
+        `da.array`
+            the spectrum as a dask array
         """
         import dask.array as da
         import numpy as np
-        import xarray as xr
 
-        bns = self.specBins(spec)
-        dask_arrays = []
-        for step in steps:
-            sp = da.from_array(np.squeeze(self.readSpectrum(spec, step)), chunks="auto")
-            dask_arrays.append(sp)
-        times = np.array(steps).astype(float)
-        if (self.coord_transform is not None) and ("t" in self.coord_transform.keys()):
-            params = self.readParams()
-            times = self.coord_transform["t"](times, params)
-
-        return xr.DataArray(
-            da.stack(dask_arrays, axis=0),
-            dims=["t", *list(bns.keys())],
-            name=spec,
-            coords={"t": times, **bns},
-        )
+        arr = self.readSpectrum(spec, step)
+        arr = da.from_array(np.squeeze(arr), chunks="auto")
+        return arr.reshape(arr.shape[0], -1).sum(axis=1)
 
     def readParams(self) -> Any:
         """
@@ -348,14 +327,19 @@ class Plugin:
         """
         raise NotImplementedError("specBins not implemented")
 
-    def prtlKeys(self) -> List[str]:
+    def prtlKeys(self, sp: int = None) -> List[str]:
         """
         Get the list of particle keys.
+
+        Parameters
+        ----------
+        `sp` : `int`, optional
+            the species to get the particle keys for (default: `None`)
 
         Returns
         -------
         `List[str]`
-            the list of particle keys
+            the list of particle keys for species `sp`
 
         Raises
         ------
