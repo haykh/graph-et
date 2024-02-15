@@ -104,21 +104,41 @@ class Plugin:
         import numpy as np
         import xarray as xr
 
-        coord_map = {old: new for old, new in zip(self.origaxes, self.axes)}
-        for xyz in ["x", "y", "z"]:
-            if xyz in field:
-                field = field.replace("x", coord_map["x"])
-                break
+        oldfield = field + ""
+        ax_mapping = {newax: oldax for oldax, newax in zip(self.origaxes, self.axes)}
+        # inv_ax_mapping = {oldax: newax for newax, oldax in ax_mapping.items()}
         coords = self.coords()
+        # coords = {ax: coords[ax] for ax in "zyx"}
+        transform = None
+        if any(oldfield.endswith(i) for i in ["x", "y", "z"]):
+            xyz = oldfield[-1]
+            if oldfield[-2] == oldfield[-1]:
+                oldfield = oldfield[:-2] + ax_mapping[oldfield[-1]] * 2
+                if (self.coord_transform is not None) and (
+                    xyz in self.coord_transform.keys()
+                ):
+                    transform = self.coord_transform[xyz]
+            else:
+                oldfield = oldfield[:-1] + ax_mapping[oldfield[-1]]
+
+        params = self.readParams()
+        # coords = self.coords()
         dask_arrays = []
         with dask.config.set(**{"array.slicing.split_large_chunks": True}):
             for step in steps:
-                fld = da.from_array(self.readField(field, step), chunks="auto")
+                fld = da.from_array(self.readField(oldfield, step), chunks="auto")
+                if transform is not None:
+                    fld = transform(fld, params)
+                # if self.swapaxes is not None:
+                #     for sw in self.swapaxes:
+                #         fld = np.swapaxes(fld, *sw)
+                #     fld = fld.transpose(*[self.axes.index(ax) for ax in self.origaxes])
+
                 dask_arrays.append(fld)
         times = np.array(steps).astype(float)
         if (self.coord_transform is not None) and ("t" in self.coord_transform.keys()):
-            params = self.readParams()
             times = self.coord_transform["t"](times, params)
+        print (coords.keys(), [c.shape for c in coords.values()], dask_arrays[0].shape)
         return xr.DataArray(
             da.stack(dask_arrays, axis=0),
             dims=["t", *list(coords.keys())],
@@ -147,6 +167,7 @@ class Plugin:
         `xr.DataArray`
             the particle key as an xarray DataArray
         """
+        import dask
         import dask.array as da
         import numpy as np
         import xarray as xr
@@ -156,8 +177,10 @@ class Plugin:
             return [da.concatenate([a, da.full(max_len - len(a), np.nan)]) for a in arr]
 
         dask_arrays = []
-        for step in steps:
-            dask_arrays.append(self.readParticleKey(spec, key, step))
+        with dask.config.set(**{"array.slicing.split_large_chunks": True}):
+            for step in steps:
+                pk = da.from_array(self.readParticleKey(spec, key, step), chunks="auto")
+                dask_arrays.append(pk)
         data = list_to_ragged(dask_arrays)
         times = np.array(steps).astype(float)
         if (self.coord_transform is not None) and ("t" in self.coord_transform.keys()):
