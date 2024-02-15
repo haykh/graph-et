@@ -150,7 +150,7 @@ class TristanV2(Plugin):
                         bins[xyz] = arr
         return bins
 
-    def prtlKeys(self) -> List[str]:
+    def prtlKeys(self, sp: int = None) -> List[str]:
         import numpy as np
 
         if self.particles is None:
@@ -159,7 +159,11 @@ class TristanV2(Plugin):
             s0 = self.first_step
             self.openParticleFiles([s0])
             return np.unique(
-                [k.split("_")[0] for k in list(self.files["prtl"][s0].keys())]
+                [
+                    k.split("_")[0]
+                    for k in self.files["prtl"][s0].keys()
+                    if k.endswith(f"_{sp}")
+                ]
             ).tolist()
 
     def prtlSpecies(self) -> List[int]:

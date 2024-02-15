@@ -78,26 +78,26 @@ def test_tristanv2_plugin():
     for f in ["xx", "yy", "zz", "bx", "by", "bz"]:
         assert d.fields[f].shape == (5, 30, 20, 25)
 
-    # # test particles
-    # assert list(d.particles.keys()) == [1, 2, 3, 4]
-    # for i in range(1, 5):
-    #     assert np.all(d.particles[i].t == np.arange(5))
+    # test particles
+    assert list(d.particles.keys()) == [1, 2, 3, 4]
+    for i in range(1, 5):
+        assert np.all(d.particles[i].t == np.arange(5))
 
-    # assert list(d.particles[2].variables.keys()) == ["t", "u", "v", "w", "x", "y", "z"]
-    # assert list(d.particles[3].variables.keys()) == ["t", "x", "y", "z"]
+    assert list(d.particles[2].variables.keys()) == ["t", "u", "v", "w", "x", "y", "z"]
+    assert list(d.particles[3].variables.keys()) == ["t", "x", "y", "z"]
 
-    # npart = [60, 77, 79, 87]
-    # for i in range(1, 5):
-    #     for v in ["u", "v", "w", "x", "y", "z"] if i % 2 == 0 else ["x", "y", "z"]:
-    #         assert d.particles[i][v].shape == (5, npart[i - 1])
+    npart = [60, 77, 79, 87]
+    for i in range(1, 5):
+        for v in ["u", "v", "w", "x", "y", "z"] if i % 2 == 0 else ["x", "y", "z"]:
+            assert d.particles[i][v].shape == (5, npart[i - 1])
 
-    # # test spectra
-    # assert list(d.spectra.variables.keys()) == ["t", "e", "n1", "n2", "n3", "n4"]
-    # assert d.spectra.t.shape == (5,)
+    # test spectra
+    assert list(d.spectra.variables.keys()) == ["t", "e", "n1", "n2", "n3", "n4"]
+    assert d.spectra.t.shape == (5,)
 
-    # ebins = np.logspace(-2, 2, 101)
-    # ebins_mid = (ebins[1:] + ebins[:-1]) / 2
+    ebins = np.logspace(-2, 2, 101)
+    ebins_mid = (ebins[1:] + ebins[:-1]) / 2
 
-    # assert np.all(d.spectra.e == ebins_mid)
-    # for i in range(1, 5):
-    #     assert d.spectra[f"n{i}"].shape == (5, 100)
+    assert np.all(d.spectra.e == ebins_mid)
+    for i in range(1, 5):
+        assert d.spectra[f"n{i}"].shape == (5, 100)
