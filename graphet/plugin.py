@@ -1,9 +1,10 @@
-from typing import Any, List, Dict, Union, Callable
+from typing import Any, List, Dict, Union, Callable, Tuple
 
 
 class Plugin:
     import numpy as np
     import xarray as xr
+    import dask.array as da
 
     def __init__(
         self,
@@ -84,32 +85,92 @@ class Plugin:
                     coords[ax_mapping[ax]] = func(coords[ax_mapping[ax]], params)
         return {newax: coords[oldax] for oldax, newax in zip(self.origaxes, self.axes)}
 
-    def field(self, field: str, steps: List[int]) -> xr.DataArray:
+    # def field(self, field: str, steps: List[int]) -> xr.DataArray:
+    #     """
+    #     Read a field from the simulation and return it as an xarray DataArray.
+
+    #     Parameters
+    #     ----------
+    #     `field` : `str`
+    #         the name of the field to read
+    #     `steps` : `List[int]`
+    #         the steps to read
+    #     Returns
+    #     -------
+    #     `xr.DataArray`
+    #         the field as an xarray DataArray
+    #     """
+    #     import dask
+    #     import dask.array as da
+    #     import numpy as np
+    #     import xarray as xr
+
+    #     oldfield = field + ""
+    #     ax_mapping = {newax: oldax for oldax, newax in zip(self.origaxes, self.axes)}
+    #     # inv_ax_mapping = {oldax: newax for newax, oldax in ax_mapping.items()}
+    #     coords = self.coords()
+    #     # coords = {ax: coords[ax] for ax in "zyx"}
+    #     transform = None
+    #     if any(oldfield.endswith(i) for i in ["x", "y", "z"]):
+    #         xyz = oldfield[-1]
+    #         if oldfield[-2] == oldfield[-1]:
+    #             oldfield = oldfield[:-2] + ax_mapping[oldfield[-1]] * 2
+    #             if (self.coord_transform is not None) and (
+    #                 xyz in self.coord_transform.keys()
+    #             ):
+    #                 transform = self.coord_transform[xyz]
+    #         else:
+    #             oldfield = oldfield[:-1] + ax_mapping[oldfield[-1]]
+
+    #     params = self.readParams()
+    #     # coords = self.coords()
+    #     dask_arrays = []
+    #     with dask.config.set(**{"array.slicing.split_large_chunks": True}):
+    #         for step in steps:
+    #             fld = da.from_array(self.readField(oldfield, step), chunks="auto")
+    #             if transform is not None:
+    #                 fld = transform(fld, params)
+    #             # if self.swapaxes is not None:
+    #             #     for sw in self.swapaxes:
+    #             #         fld = np.swapaxes(fld, *sw)
+    #             #     fld = fld.transpose(*[self.axes.index(ax) for ax in self.origaxes])
+
+    #             dask_arrays.append(fld)
+    #     times = np.array(steps).astype(float)
+    #     if (self.coord_transform is not None) and ("t" in self.coord_transform.keys()):
+    #         times = self.coord_transform["t"](times, params)
+    #     print(coords.keys(), [c.shape for c in coords.values()], dask_arrays[0].shape)
+    #     return xr.DataArray(
+    #         da.stack(dask_arrays, axis=0),
+    #         dims=["t", *list(coords.keys())],
+    #         name=field,
+    #         coords={
+    #             "t": times,
+    #             **coords,
+    #         },
+    #     )
+
+    def field(self, field: str, step: int) -> da.Array:
         """
-        Read a field from the simulation and return it as an xarray DataArray.
+        Read a field from the simulation at a specific step and return it as an dask array.
 
         Parameters
         ----------
         `field` : `str`
             the name of the field to read
-        `steps` : `List[int]`
-            the steps to read
+        `step` : `int`
+            the step to read
         Returns
         -------
-        `xr.DataArray`
-            the field as an xarray DataArray
+        `da.Array`
+            the field as a dask array
         """
-        import dask
         import dask.array as da
-        import numpy as np
-        import xarray as xr
 
         oldfield = field + ""
         ax_mapping = {newax: oldax for oldax, newax in zip(self.origaxes, self.axes)}
-        # inv_ax_mapping = {oldax: newax for newax, oldax in ax_mapping.items()}
-        coords = self.coords()
-        # coords = {ax: coords[ax] for ax in "zyx"}
-        transform = None
+        params = self.readParams()
+        transform = lambda fld, _: fld
         if any(oldfield.endswith(i) for i in ["x", "y", "z"]):
             xyz = oldfield[-1]
             if oldfield[-2] == oldfield[-1]:
@@ -121,32 +182,14 @@ class Plugin:
             else:
                 oldfield = oldfield[:-1] + ax_mapping[oldfield[-1]]
 
-        params = self.readParams()
-        # coords = self.coords()
-        dask_arrays = []
-        with dask.config.set(**{"array.slicing.split_large_chunks": True}):
-            for step in steps:
-                fld = da.from_array(self.readField(oldfield, step), chunks="auto")
-                if transform is not None:
-                    fld = transform(fld, params)
-                # if self.swapaxes is not None:
-                #     for sw in self.swapaxes:
-                #         fld = np.swapaxes(fld, *sw)
-                #     fld = fld.transpose(*[self.axes.index(ax) for ax in self.origaxes])
-
-                dask_arrays.append(fld)
-        times = np.array(steps).astype(float)
-        if (self.coord_transform is not None) and ("t" in self.coord_transform.keys()):
-            times = self.coord_transform["t"](times, params)
-        print (coords.keys(), [c.shape for c in coords.values()], dask_arrays[0].shape)
-        return xr.DataArray(
-            da.stack(dask_arrays, axis=0),
-            dims=["t", *list(coords.keys())],
-            name=field,
-            coords={
-                "t": times,
-                **coords,
-            },
+        print("requested: ", field, "loading: ", oldfield)
+        coord_map = {old: new for old, new in zip(self.origaxes, self.axes)}
+        for xyz in ["x", "y", "z"]:
+            if xyz in field:
+                field = field.replace("x", coord_map["x"])
+                break
+        return transform(
+            da.from_array(self.readField(oldfield, step), chunks="auto"), params
         )
 
     def particleKey(self, spec: int, key: str, steps: List[int]) -> xr.DataArray:
