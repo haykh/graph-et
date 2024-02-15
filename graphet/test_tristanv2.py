@@ -13,6 +13,7 @@ def test_tristanv2_plugin():
         first_step=0,
         swapaxes=[(0, 1), (2, 1)],
     )
+    # "zyx" -> "yxz"
     # test fields
     assert sorted(list(d.fields.variables.keys())) == sorted(
         [
@@ -33,9 +34,9 @@ def test_tristanv2_plugin():
     assert d.fields.z.shape == (20,)
     assert d.fields.y.shape == (25,)
     assert d.fields.x.shape == (30,)
-    assert np.all(d.fields.z.values == np.arange(20))
-    assert np.all(d.fields.y.values == np.arange(25))
     assert np.all(d.fields.x.values == np.arange(30))
+    assert np.all(d.fields.y.values == np.arange(25))
+    assert np.all(d.fields.z.values == np.arange(20))
 
     assert np.all(d.fields.xx.sel(x=10).values == 10)
     assert np.all(d.fields.yy.sel(y=10).values == 10)
@@ -75,7 +76,7 @@ def test_tristanv2_plugin():
         )
 
     for f in ["xx", "yy", "zz", "bx", "by", "bz"]:
-        assert d.fields[f].shape == (5, 20, 25, 30)
+        assert d.fields[f].shape == (5, 30, 20, 25)
 
     # # test particles
     # assert list(d.particles.keys()) == [1, 2, 3, 4]

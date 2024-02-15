@@ -182,15 +182,11 @@ class Plugin:
             else:
                 oldfield = oldfield[:-1] + ax_mapping[oldfield[-1]]
 
-        print("requested: ", field, "loading: ", oldfield)
-        coord_map = {old: new for old, new in zip(self.origaxes, self.axes)}
-        for xyz in ["x", "y", "z"]:
-            if xyz in field:
-                field = field.replace("x", coord_map["x"])
-                break
-        return transform(
-            da.from_array(self.readField(oldfield, step), chunks="auto"), params
-        )
+        arr = da.from_array(self.readField(oldfield, step), chunks="auto")
+        if self.swapaxes is not None:
+            for sw in self.swapaxes:
+                arr = da.swapaxes(arr, *sw)
+        return transform(arr, params)
 
     def particleKey(self, spec: int, key: str, steps: List[int]) -> xr.DataArray:
         """
