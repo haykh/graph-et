@@ -25,8 +25,10 @@ class TristanV2(Plugin):
         super().__init__(**{k: v for k, v in kwargs.items() if k in parent_kwargs})
         self.path = path
         self.cfg_fname = cfg_fname
-        if self.params and cfg_fname is None:
-            raise ValueError("`cfg_fname` must be specified if `params` is True")
+        if not self.cfg_fname is None:
+            self.params = True
+        else:
+            self.params = False
         self.fname_templates = {
             "flds": "flds/flds.tot.%05d",
             "prtl": "prtl/prtl.tot.%05d",
