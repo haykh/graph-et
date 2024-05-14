@@ -17,6 +17,7 @@ d = Data(
     steps=range(150),       # steps to load metadata for
     path=f"output/",        # path to the data
     cfg_fname=f"input.cfg", # configuration file
+    params=True,            # read configuration file
     coord_transform={       # time/coordinate transformation
         "t": lambda t, prm: t * prm["output:interval"] * prm["algorithm:c"] / prm["grid:my0"],
         "x": lambda x, prm: (x - x.mean()) / prm["grid:my0"],
