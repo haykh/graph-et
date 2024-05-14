@@ -12,7 +12,13 @@ def test_tristanv2_plugin():
         path=f"{fdir}/tests/data/tristanv2/",
         first_step=0,
         swapaxes=[(0, 1), (2, 1)],
+        cfg_fname=f"{fdir}/tests/data/tristanv2/input.cfg",
     )
+    assert d.params is not None
+    assert d.params["blockA:paramA1"] == 1.23
+    assert d.params["blockA:paramA2"] == 2
+    assert d.params["blockB:paramB1"] == 345
+    assert d.params["blockB:paramB2"] == 4.56
     # "zyx" -> "yxz"
     # test fields
     assert sorted(list(d.fields.variables.keys())) == sorted(
