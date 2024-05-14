@@ -1,3 +1,43 @@
 [build-system]
-requires      = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires      = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "graph-et"
+dynamic = ["version"]
+dependencies = [
+"dask>=2024.1.1",
+"h5pickle>=0.4.2",
+"h5py>=3.10.0",
+"numpy>=1.26.4",
+"pandas>=2.2.0",
+"pyarrow>=15.0.0",
+"xarray>=2024.1.1",
+]
+requires-python = ">=3.8"
+authors = [{ name = "Hayk", email = "haykh.astro@gmail.com" }]
+maintainers = [{ name = "Hayk", email = "haykh.astro@gmail.com" }]
+description = "library for efficient loading of particle-in-cell simulation data produced by a variety of different codes"
+readme = "README.md"
+license = { file = "LICENSE" }
+classifiers = [
+"Development Status :: 5 - Production/Stable",
+"Intended Audience :: Science/Research",
+"Intended Audience :: Education",
+"License :: OSI Approved :: BSD License",
+"Programming Language :: Python :: 3 :: Only",
+"Programming Language :: Python :: 3.8",
+"Programming Language :: Python :: 3.9",
+"Programming Language :: Python :: 3.10",
+"Programming Language :: Python :: 3.11",
+"Programming Language :: Python :: 3.12",
+]
+
+[project.urls]
+Repository = "https://github.com/haykh/graph-et"
+
+[tool.hatch.version]
+path = "graphet/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["graphet"]
