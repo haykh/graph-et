@@ -104,6 +104,6 @@ def test_tristanv2_plugin():
     ebins = np.logspace(-2, 2, 101)
     ebins_mid = (ebins[1:] + ebins[:-1]) / 2
 
-    assert np.all(d.spectra.e == ebins_mid)
+    assert np.all(np.isclose(d.spectra.e, ebins_mid))
     for i in range(1, 5):
         assert d.spectra[f"n{i}"].shape == (5, 100)

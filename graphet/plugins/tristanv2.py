@@ -93,6 +93,7 @@ class TristanV2(Plugin):
             raise ValueError("`fields` cannot be None when calling `readField`")
         if (self.files["flds"] is None) or (step not in self.files["flds"].keys()):
             self.openFieldFiles([step])
+        assert self.files["flds"] is not None, "Field files not opened"
         return self.files["flds"][step][field]
 
     def readParticleKey(self, species: int, key: str, step: int) -> h5py.Dataset:
@@ -102,6 +103,7 @@ class TristanV2(Plugin):
             )
         if (self.files["prtl"] is None) or (step not in self.files["prtl"].keys()):
             self.openParticleFiles([step])
+        assert self.files["prtl"] is not None, "Particle files not opened"
         return self.files["prtl"][step][f"{key}_{species}"]
 
     def readSpectrum(self, spec: str, step: int) -> h5py.Dataset:
@@ -109,6 +111,7 @@ class TristanV2(Plugin):
             raise ValueError("`spectra` cannot be None when calling `readSpectrum`")
         if (self.files["spec"] is None) or (step not in self.files["spec"].keys()):
             self.openSpectrumFiles([step])
+        assert self.files["spec"] is not None, "Spectrum files not opened"
         return self.files["spec"][step][spec]
 
     def rawFieldKeys(self) -> List[str]:
@@ -117,6 +120,7 @@ class TristanV2(Plugin):
         else:
             s0 = self.first_step
             self.openFieldFiles([s0])
+            assert self.files["flds"] is not None, "Field files not opened"
             return list(self.files["flds"][s0].keys())
 
     def fieldKeys(self) -> List[str]:
@@ -135,6 +139,7 @@ class TristanV2(Plugin):
         else:
             s0 = self.first_step
             self.openSpectrumFiles([s0])
+            assert self.files["spec"] is not None, "Spectrum files not opened"
             return [x for x in list(self.files["spec"][s0].keys()) if x.startswith("n")]
 
     def specBins(self, spec: str) -> Dict[str, np.ndarray]:
@@ -142,17 +147,20 @@ class TristanV2(Plugin):
         s0 = self.first_step
         self.openSpectrumFiles([s0])
         if spec.startswith("nr"):
+            assert self.files["spec"] is not None, "Spectrum files not opened"
             bins["re"] = self.files["spec"][s0]["rbins"][:]
         else:
+            assert self.files["spec"] is not None, "Spectrum files not opened"
             bins["e"] = self.files["spec"][s0]["ebins"][:]
-            for xyz in "xyz":
-                if xyz + "bins" in self.files["spec"][s0].keys():
-                    arr = self.files["spec"][s0][xyz + "bins"][:]
-                    if len(arr) > 1:
-                        bins[xyz] = arr
+            # for xyz in "xyz":
+            #     if xyz + "bins" in self.files["spec"][s0].keys():
+            #         arr = self.files["spec"][s0][xyz + "bins"][:]
+            #         if len(arr) > 1:
+            #             bins[xyz] = arr
+
         return bins
 
-    def prtlKeys(self, sp: int = None) -> List[str]:
+    def prtlKeys(self, sp: int | None = None) -> List[str]:
         import numpy as np
 
         if self.particles is None:
@@ -160,6 +168,7 @@ class TristanV2(Plugin):
         else:
             s0 = self.first_step
             self.openParticleFiles([s0])
+            assert self.files["prtl"] is not None, "Particle files not opened"
             return np.unique(
                 [
                     k.split("_")[0]

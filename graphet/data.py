@@ -1,9 +1,16 @@
 from typing import List
+import logging
 from .plugin import Plugin
 
 
 class Data:
-    def __init__(self, plugin: Plugin, steps: List[int], **kwargs):
+    def __init__(
+        self,
+        plugin: Plugin,
+        steps: List[int],
+        loglevel: int = logging.ERROR,
+        **kwargs,
+    ):
         """
         Main data container class.
 
@@ -20,6 +27,9 @@ class Data:
         import dask.array as da
         import xarray as xr
         import numpy as np
+
+        logging.getLogger("graphet.log")
+        logging.basicConfig(level=loglevel)
 
         def list_to_ragged(arr: List[da.Array]) -> List[da.Array]:
             max_len = np.max([len(a) for a in arr])
