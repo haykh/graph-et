@@ -1,15 +1,14 @@
-from typing import Union, Dict, Any, List
+from typing import Dict, Any, List
 from ..plugin import Plugin
+from ..utils import array_t
+from h5py import Dataset as h5_Ds, File as h5_File
 
 
 class TristanV2(Plugin):
-    import h5py
-    import numpy as np
-
     def __init__(
         self,
         path: str = "",
-        cfg_fname: Union[str, None] = None,
+        cfg_fname: str | None = None,
         **kwargs,
     ):
         self.first_step = kwargs.get("first_step", kwargs.get("steps", [0])[0])
@@ -34,14 +33,15 @@ class TristanV2(Plugin):
             "prtl": "prtl/prtl.tot.%05d",
             "spec": "spec/spec.tot.%05d",
         }
+
         self.kwargs = {k: v for k, v in kwargs.items() if k not in parent_kwargs}
-        self.files = {
+        self.files: Dict[str, Dict[int, h5_File] | None] = {
             "flds": None,
             "prtl": None,
             "spec": None,
         }
 
-    def readCoords(self) -> Dict[str, np.ndarray]:
+    def readCoords(self) -> Dict[str, array_t]:
         if self.fields is None:
             return {
                 "x": self.kwargs.get("x"),
@@ -61,9 +61,10 @@ class TristanV2(Plugin):
                 "z": zz[:][:, 0, 0],
             }
 
-    def readParams(self) -> Union[Dict[str, Any], None]:
+    def readParams(self) -> Dict[str, Any] | None:
         if self.params:
             attrs = {}
+            assert self.cfg_fname is not None, "cfg_fname not provided"
             with open(self.cfg_fname) as f:
                 attrs_raw = f.readlines()
             block = None
@@ -88,15 +89,17 @@ class TristanV2(Plugin):
         else:
             return None
 
-    def readField(self, field: str, step: int) -> h5py.Dataset:
+    def readField(self, field: str, step: int) -> h5_Ds:
         if self.fields is None:
             raise ValueError("`fields` cannot be None when calling `readField`")
         if (self.files["flds"] is None) or (step not in self.files["flds"].keys()):
             self.openFieldFiles([step])
         assert self.files["flds"] is not None, "Field files not opened"
-        return self.files["flds"][step][field]
+        ds = self.files["flds"][step][field]
+        assert isinstance(ds, h5_Ds), f"Field {field} not found in step {step}"
+        return ds
 
-    def readParticleKey(self, species: int, key: str, step: int) -> h5py.Dataset:
+    def readParticleKey(self, species: int, key: str, step: int) -> h5_Ds:
         if self.particles is None:
             raise ValueError(
                 "`particles` cannot be None when calling `readParticleKey`"
@@ -104,15 +107,19 @@ class TristanV2(Plugin):
         if (self.files["prtl"] is None) or (step not in self.files["prtl"].keys()):
             self.openParticleFiles([step])
         assert self.files["prtl"] is not None, "Particle files not opened"
-        return self.files["prtl"][step][f"{key}_{species}"]
+        ds = self.files["prtl"][step][f"{key}_{species}"]
+        assert isinstance(ds, h5_Ds), f"Particle key {key} not found in step {step}"
+        return ds
 
-    def readSpectrum(self, spec: str, step: int) -> h5py.Dataset:
+    def readSpectrum(self, spec: str, step: int) -> h5_Ds:
         if self.spectra is None:
             raise ValueError("`spectra` cannot be None when calling `readSpectrum`")
         if (self.files["spec"] is None) or (step not in self.files["spec"].keys()):
             self.openSpectrumFiles([step])
         assert self.files["spec"] is not None, "Spectrum files not opened"
-        return self.files["spec"][step][spec]
+        ds = self.files["spec"][step][spec]
+        assert isinstance(ds, h5_Ds), f"Spectrum {spec} not found in step {step}"
+        return ds
 
     def rawFieldKeys(self) -> List[str]:
         if self.fields is None:
@@ -142,16 +149,20 @@ class TristanV2(Plugin):
             assert self.files["spec"] is not None, "Spectrum files not opened"
             return [x for x in list(self.files["spec"][s0].keys()) if x.startswith("n")]
 
-    def specBins(self, spec: str) -> Dict[str, np.ndarray]:
+    def specBins(self, spec: str) -> Dict[str, array_t]:
         bins = {}
         s0 = self.first_step
         self.openSpectrumFiles([s0])
         if spec.startswith("nr"):
             assert self.files["spec"] is not None, "Spectrum files not opened"
-            bins["re"] = self.files["spec"][s0]["rbins"][:]
+            rbins_ds = self.files["spec"][s0]["rbins"]
+            assert isinstance(rbins_ds, h5_Ds), "Radial bins not found"
+            bins["re"] = rbins_ds[:]
         else:
             assert self.files["spec"] is not None, "Spectrum files not opened"
-            bins["e"] = self.files["spec"][s0]["ebins"][:]
+            ebins_ds = self.files["spec"][s0]["ebins"]
+            assert isinstance(ebins_ds, h5_Ds), "Energy bins not found"
+            bins["e"] = ebins_ds[:]
             # for xyz in "xyz":
             #     if xyz + "bins" in self.files["spec"][s0].keys():
             #         arr = self.files["spec"][s0][xyz + "bins"][:]
@@ -169,13 +180,29 @@ class TristanV2(Plugin):
             s0 = self.first_step
             self.openParticleFiles([s0])
             assert self.files["prtl"] is not None, "Particle files not opened"
-            return np.unique(
-                [
-                    k.split("_")[0]
-                    for k in self.files["prtl"][s0].keys()
-                    if k.endswith(f"_{sp}")
-                ]
-            ).tolist()
+            return [
+                str(k)
+                for k in np.unique(
+                    [
+                        k.split("_")[0]
+                        for k in self.files["prtl"][s0].keys()
+                        if k.endswith(f"_{sp}")
+                    ]
+                )
+            ]
+
+    def prtlIndex(self, sp: int, step: int) -> array_t:
+        from dask.array.routines import ravel_multi_index as da_ravel_multi_index
+        from dask.array.core import from_array as da_from_array
+        from numpy import int64
+
+        return da_ravel_multi_index(
+            [
+                da_from_array(self.readParticleKey(sp, "ind", step)),
+                da_from_array(self.readParticleKey(sp, "proc", step)),
+            ],
+            [100000000, 100000000],
+        )
 
     def prtlSpecies(self) -> List[int]:
         import numpy as np
@@ -185,11 +212,15 @@ class TristanV2(Plugin):
         else:
             s0 = self.first_step
             self.openParticleFiles([s0])
-            return np.unique(
-                [int(k.split("_")[1]) for k in list(self.files["prtl"][s0].keys())]
-            ).tolist()
+            assert self.files["prtl"] is not None, "Particle files not opened"
+            return [
+                int(k)
+                for k in np.unique(
+                    [int(k.split("_")[1]) for k in list(self.files["prtl"][s0].keys())]
+                )
+            ]
 
-    def openH5File(self, data: str, step: int) -> h5py.File:
+    def openH5File(self, data: str, step: int) -> h5_File:
         import h5py
         import os
 

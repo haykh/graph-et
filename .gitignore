@@ -161,3 +161,4 @@ cython_debug/
 
 *.ipynb
 ipynb_checkpoints/
+.vscode/
