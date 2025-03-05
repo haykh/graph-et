@@ -8,8 +8,11 @@
 ### Usage example
 
 ```python
-from graphet import Data
+from graphet import Data, Dashboard
 from graphet.plugins import TristanV2
+
+# to monitor usage etc using a locally hosted dashboard
+Dashboard()
 
 # load the metadata using the TristanV2 plugin
 d = Data(
@@ -26,6 +29,7 @@ d = Data(
     },
     swapaxes=[(0, 1), (2, 1)],  # axes swapping "zyx" -> "yxz"
 )
+
 # main containers are
 d.fields      # <- fields
 d.particles   # <- particles
@@ -45,6 +49,10 @@ cnt, _ = np.histogram(
     .sel(t=slice(1.5, 2.2)).mean("t"),
     bins=np.logspace(-1, 3, 100),
 )
+
+# to track the energy of a single particle of species #2 with, e.g., idx = 13500000000000, across timesteps
+prtl = d.particles[2].sel(idx=13500000000000)
+np.sqrt(1.0 + prtl.u**2 + prtl.v**2 + prtl.w**2).plot()
 ```
 
 ### Todo

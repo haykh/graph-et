@@ -49,6 +49,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+test/
 
 # Translations
 *.mo
@@ -160,3 +161,4 @@ cython_debug/
 
 *.ipynb
 ipynb_checkpoints/
+.vscode/

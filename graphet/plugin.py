@@ -1,20 +1,16 @@
-from typing import Any, List, Dict, Union, Callable, Tuple
+from typing import Any, List, Dict, Union, Callable
+from .utils import array_t
 
 
 class Plugin:
-    import numpy as np
-    import xarray as xr
-    import dask.array as da
 
     def __init__(
         self,
         params: bool = False,
-        fields: Union[None, List[str]] = ["ALL"],
-        particles: Union[None, List[str]] = ["ALL"],
-        spectra: Union[None, List[str]] = ["ALL"],
-        coord_transform: Union[
-            None, Dict[str, Callable[[np.ndarray, Any], np.ndarray]]
-        ] = None,
+        fields: None | List[str] = ["ALL"],
+        particles: None | List[str] = ["ALL"],
+        spectra: None | List[str] = ["ALL"],
+        coord_transform: None | Dict[str, Callable[[array_t, Any], array_t]] = None,
         origaxes: str = "zyx",
         swapaxes: Union[List[List[int]], None] = None,
     ):
@@ -44,7 +40,7 @@ class Plugin:
             list of particle species to read (default: `["ALL"]`)
         `spectra` : `Union[None, List[str]]`, optional
             list of spectra to read (default: `["ALL"]`)
-        `coord_transform` : `Union[None, Dict[str, Callable[[np.ndarray, Any], np.ndarray]]]`, optional
+        `coord_transform` : `Union[None, Dict[str, Callable[[np_Array, Any], np_Array]]]`, optional
             dictionary of coordinate transformations to apply to the coordinates read from the simulation. The keys are the axes to transform, and the values are the transformation functions. The transformation functions take two arguments: the coordinate array and the simulation parameters. (default: `None`)
         `origaxes` : `str`, optional
             the original axis order of the simulation (default: `"zyx"`)
@@ -59,6 +55,7 @@ class Plugin:
         self.coord_transform = coord_transform
         self.swapaxes = swapaxes
         self.axes = list(self.origaxes)
+        self._has_prtl_idx = None
         if self.swapaxes is not None:
             for s in self.swapaxes:
                 self.axes[s[0]], self.axes[s[1]] = (
@@ -67,13 +64,13 @@ class Plugin:
                 )
         self.axes = "".join(self.axes)
 
-    def coords(self) -> Dict[str, np.ndarray]:
+    def coords(self) -> Dict[str, array_t]:
         """
         Read the coordinates from the simulation and apply any coordinate transformations.
 
         Returns
         -------
-        `Dict[str, np.ndarray]`
+        `Dict[str, np_Array]`
             dictionary of coordinates, with the keys being the axes and the values being the coordinate arrays
         """
         coords = self.readCoords()
@@ -85,7 +82,7 @@ class Plugin:
                     coords[ax_mapping[ax]] = func(coords[ax_mapping[ax]], params)
         return {newax: coords[oldax] for oldax, newax in zip(self.origaxes, self.axes)}
 
-    def field(self, field: str, step: int) -> da.Array:
+    def field(self, field: str, step: int) -> array_t:
         """
         Read a field from the simulation at a specific step and return it as an dask array.
 
@@ -100,12 +97,15 @@ class Plugin:
         `da.Array`
             the field as a dask array
         """
-        import dask.array as da
+        from dask.array.core import from_array as da_from_array
+        from dask.array.routines import swapaxes as da_swapaxes
 
         oldfield = field + ""
         ax_mapping = {newax: oldax for oldax, newax in zip(self.origaxes, self.axes)}
         params = self.readParams()
-        transform = lambda fld, _: fld
+
+        transform: None | Callable = None
+
         if any(oldfield.endswith(i) for i in ["x", "y", "z"]):
             xyz = oldfield[-1]
             if oldfield[-2] == oldfield[-1]:
@@ -117,13 +117,17 @@ class Plugin:
             else:
                 oldfield = oldfield[:-1] + ax_mapping[oldfield[-1]]
 
-        arr = da.from_array(self.readField(oldfield, step), chunks="auto")
+        arr = da_from_array(self.readField(oldfield, step), chunks="auto")
         if self.swapaxes is not None:
             for sw in self.swapaxes:
-                arr = da.swapaxes(arr, *sw)
-        return transform(arr, params)
+                arr = da_swapaxes(arr, *sw)
 
-    def particleKey(self, sp: int, key: str, step: int) -> xr.DataArray:
+        if transform is not None:
+            return transform(arr, params)
+        else:
+            return arr
+
+    def particleKey(self, sp: int, key: str, step: int) -> array_t:
         """
         Read a particle key from the simulation at a specific step and return it as a dask array.
 
@@ -141,12 +145,16 @@ class Plugin:
         `da.Array`
             the particle key as a dask array
         """
-        import dask.array as da
+        from dask.array.core import from_array as da_from_array
+        from xarray import DataArray as xr_DataArray
+        from numpy import array as np_array
 
         oldkey = key + ""
         ax_mapping = {newax: oldax for oldax, newax in zip(self.origaxes, self.axes)}
         params = self.readParams()
-        transform = lambda k, _: k
+
+        transform: None | Callable = None
+
         if oldkey in ["x", "y", "z"]:
             oldkey = ax_mapping[oldkey]
             if (self.coord_transform is not None) and (
@@ -154,11 +162,54 @@ class Plugin:
             ):
                 transform = self.coord_transform[key]
 
-        return transform(
-            da.from_array(self.readParticleKey(sp, oldkey, step), chunks="auto"), params
-        )
+        idx = self.prtlIndex(sp, step)
+        if idx is not None:
+            if (self.coord_transform is not None) and (
+                "t" in self.coord_transform.keys()
+            ):
+                t = self.coord_transform["t"](np_array([step]), params)
+                assert t is not None, "Time transformation not implemented"
+                t = t[0]
+            else:
+                t = step
 
-    def spectrum(self, spec: str, step: int) -> da.Array:
+            self._has_prtl_idx = True
+            da = xr_DataArray(
+                self.readParticleKey(sp, oldkey, step),
+                coords={"idx": idx, "t": t},
+                dims="idx",
+            )
+        else:
+            self._has_prtl_idx = False
+            da = da_from_array(self.readParticleKey(sp, oldkey, step), chunks="auto")
+
+        if transform is not None:
+            return transform(
+                da,
+                params,
+            )
+        else:
+            return da
+
+    def prtlIndex(self, sp: int, step: int) -> array_t:
+        """
+        Return custom particle index used to identify particles in the simulation.
+
+        Parameters
+        ----------
+        `sp` : `int`
+            the particle species
+        `step` : `int`
+            the step
+
+        Returns
+        -------
+        `da.Array | None`
+            the particle index as a dask array (or none if indexing is not available)
+        """
+        return None
+
+    def spectrum(self, spec: str, step: int) -> array_t:
         """
         Read a spectrum from the simulation at a specific step and return it as a dask array.
 
@@ -174,11 +225,11 @@ class Plugin:
         `da.array`
             the spectrum as a dask array
         """
-        import dask.array as da
+        from dask.array.core import from_array as da_from_array
         import numpy as np
 
         arr = self.readSpectrum(spec, step)
-        arr = da.from_array(np.squeeze(arr), chunks="auto")
+        arr = da_from_array(np.squeeze(arr), chunks="auto")
         return arr.reshape(arr.shape[0], -1).sum(axis=1)
 
     def readParams(self) -> Any:
@@ -197,13 +248,13 @@ class Plugin:
         """
         raise NotImplementedError("readParams not implemented")
 
-    def readCoords(self) -> Dict[str, np.ndarray]:
+    def readCoords(self) -> Dict[str, array_t]:
         """
         Read the coordinates from the simulation.
 
         Returns
         -------
-        `Dict[str, np.ndarray]`
+        `Dict[str, np_Array]`
             dictionary of coordinates, with the keys being the axes and the values being the coordinate arrays
 
         Raises
@@ -306,7 +357,7 @@ class Plugin:
         """
         raise NotImplementedError("specKeys not implemented")
 
-    def specBins(self, spec: str) -> Dict[str, np.ndarray]:
+    def specBins(self, spec: str) -> Dict[str, array_t]:
         """
         Get the bins for a specific spectrum.
 
@@ -317,7 +368,7 @@ class Plugin:
 
         Returns
         -------
-        `Dict[str, np.ndarray]`
+        `Dict[str, np_Array]`
             the bins for the spectrum
 
         Raises
@@ -327,7 +378,7 @@ class Plugin:
         """
         raise NotImplementedError("specBins not implemented")
 
-    def prtlKeys(self, sp: int = None) -> List[str]:
+    def prtlKeys(self, sp: int | None = None) -> List[str]:
         """
         Get the list of particle keys.
 
@@ -426,3 +477,16 @@ class Plugin:
             if not implemented in the child class
         """
         raise NotImplementedError("openSpectrumFiles not implemented")
+
+    @property
+    def has_particle_idx(self) -> bool:
+        """
+        Check if the plugin has particle index.
+
+        Returns
+        -------
+        `bool`
+            whether the plugin has particle index
+        """
+        assert self._has_prtl_idx is not None, "Particle index not checked"
+        return getattr(self, "_has_prtl_idx", False)

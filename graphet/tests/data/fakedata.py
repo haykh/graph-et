@@ -66,6 +66,8 @@ for s in range(1, 5):
     uxs = rng.random(n) * 2.0 - 1.0
     uys = rng.random(n) * 2.0 - 1.0
     uzs = rng.random(n) * 2.0 - 1.0
+    inds = np.arange(n)
+    procs = np.ones_like(inds)
     for time in range(5):
         gammas = np.sqrt(1 + uxs**2 + uys**2 + uzs**2)
         xs += uxs / gammas
@@ -81,6 +83,8 @@ for s in range(1, 5):
         uxs = uxs[mask]
         uys = uys[mask]
         uzs = uzs[mask]
+        inds = inds[mask]
+        procs = procs[mask]
         fname = f"{path}tristanv2/prtl/prtl.tot.{time:05d}"
         hf = h5py.File(fname, "a")
         hf.create_dataset(f"x_{s}", data=xs)
@@ -91,6 +95,8 @@ for s in range(1, 5):
             hf.create_dataset(f"u_{s}", data=uxs)
             hf.create_dataset(f"v_{s}", data=uys)
             hf.create_dataset(f"w_{s}", data=uzs)
+        hf.create_dataset(f"ind_{s}", data=inds)
+        hf.create_dataset(f"proc_{s}", data=procs)
         hf.close()
 
         fname = f"{path}tristanv2/spec/spec.tot.{time:05d}"

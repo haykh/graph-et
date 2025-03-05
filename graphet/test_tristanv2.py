@@ -89,8 +89,28 @@ def test_tristanv2_plugin():
     for i in range(1, 5):
         assert np.all(d.particles[i].t == np.arange(5))
 
-    assert list(d.particles[2].variables.keys()) == ["t", "u", "v", "w", "x", "y", "z"]
-    assert list(d.particles[3].variables.keys()) == ["t", "x", "y", "z"]
+        print(i, d.particles[i].variables.keys())
+    assert list(d.particles[2].variables.keys()) == [
+        "t",
+        "idx",
+        "ind",
+        "proc",
+        "u",
+        "v",
+        "w",
+        "x",
+        "y",
+        "z",
+    ]
+    assert list(d.particles[3].variables.keys()) == [
+        "t",
+        "idx",
+        "ind",
+        "proc",
+        "x",
+        "y",
+        "z",
+    ]
 
     npart = [60, 77, 79, 87]
     for i in range(1, 5):
@@ -104,6 +124,6 @@ def test_tristanv2_plugin():
     ebins = np.logspace(-2, 2, 101)
     ebins_mid = (ebins[1:] + ebins[:-1]) / 2
 
-    assert np.all(d.spectra.e == ebins_mid)
+    assert np.all(np.isclose(d.spectra.e, ebins_mid))
     for i in range(1, 5):
         assert d.spectra[f"n{i}"].shape == (5, 100)
